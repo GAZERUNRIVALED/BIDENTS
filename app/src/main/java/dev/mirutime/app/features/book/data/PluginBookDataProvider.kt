@@ -1411,7 +1411,7 @@ class PluginBookDataProvider(
         val added = (mapped.size - storedCount).coerceAtLeast(0)
         if (repo != null) {
             if (bookId != null) {
-                repo.replaceChapters(
+                repo.replaceChaptersAndStamp(
                     bookId = bookId,
                     seeds = mapped.map { chapter ->
                         ChapterSeed(
@@ -1420,9 +1420,9 @@ class PluginBookDataProvider(
                             title = chapter.title,
                         )
                     },
+                    page = totalPages,
                     at = at,
                 )
-                repo.updateChaptersLastPage(bookId, totalPages, at)
                 invalidateChapterCaches(bookUrl)
             } else {
                 repo.updateTotalChapters(bookUrl, mapped.size)

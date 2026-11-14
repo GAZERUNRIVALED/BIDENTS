@@ -645,6 +645,32 @@ class LibraryMigrationTest {
 
 
     @Test
+    fun `restore verification rejects a v13 database without the chapter-list page`() = runTest {
+        val file = File(tempDir(), "verify-v13.db")
+        val created = buildLibraryDatabase(libraryDatabaseBuilder(file))
+        try {
+            // Touch the schema so the file exists, then remove the v13 column.
+            created.libraryDao().shelfCount()
+        } finally {
+            created.close()
+        }
+
+        BundledSQLiteDriver().open(file.absolutePath).use { connection ->
+            connection.exec("ALTER TABLE books DROP COLUMN chaptersLastPage")
+            connection.exec("PRAGMA user_version = 13")
+
+            val rejected = assertFailsWith<IllegalStateException> {
+                verifyRestoredDatabase(connection, LibrarySchemaVersion)
+            }
+            assertTrue(
+                rejected.message.orEmpty().contains("books.chaptersLastPage"),
+                "unexpected message: ${rejected.message}",
+            )
+        }
+    }
+
+
+    @Test
     fun `migration 9 to 10 backfills independent history and keeps book state`() = runTest {
         val file = File(tempDir(), "migrate-v9.db")
         var bookId: Long

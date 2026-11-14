@@ -431,6 +431,39 @@ class LibraryRepositoryTest {
     }
 
     @Test
+    fun `full replace and page stamp commit together with the same badge rules`() = runTest {
+        val book = book("https://site/book/replace-stamp", inLibrary = true, lastReadAt = null)
+        repository.saveBook(book)
+        val bookId = repository.book(book.bookUrl)!!.bookId
+
+        // First fill: page lands with the rows, badge stays 0.
+        repository.replaceChaptersAndStamp(
+            bookId,
+            seeds = (1..2).map { ChapterSeed(it, "https://site/ch/$it", "Chapter $it") },
+            page = 3,
+            at = 10L,
+        )
+        val first = repository.book(bookId)!!
+        assertEquals(2, first.totalChapters)
+        assertEquals(0, first.newChapters)
+        assertNull(first.lastUpdateAt)
+        assertEquals(3, first.chaptersLastPage)
+
+        // Growing list: delta badge and the new page commit in the same write.
+        repository.replaceChaptersAndStamp(
+            bookId,
+            seeds = (1..4).map { ChapterSeed(it, "https://site/ch/$it", "Chapter $it") },
+            page = 5,
+            at = 20L,
+        )
+        val grown = repository.book(bookId)!!
+        assertEquals(4, grown.totalChapters)
+        assertEquals(2, grown.newChapters)
+        assertEquals(20L, grown.lastUpdateAt)
+        assertEquals(5, grown.chaptersLastPage)
+    }
+
+    @Test
     fun `append writes only new chapters and stamps the check`() = runTest {
         val book = book("https://site/book/append", inLibrary = true, lastReadAt = null)
         repository.saveBook(book)
@@ -477,11 +510,11 @@ class LibraryRepositoryTest {
         val book = book("https://site/book/append-revive", inLibrary = true, lastReadAt = null)
         repository.saveBook(book)
         val bookId = repository.book(book.bookUrl)!!.bookId
-        repository.replaceChapters(
+        val originalId = repository.replaceChapters(
             bookId,
             listOf(ChapterSeed(1, "https://site/ch/1", "One")),
             at = 1L,
-        )
+        ).single().chapterId
         repository.markUpdatesSeen(bookId, at = 1L)
         repository.replaceChapters(bookId, emptyList(), at = 2L)
         assertEquals(0, repository.chapterCount(bookId))
@@ -497,6 +530,8 @@ class LibraryRepositoryTest {
 
         assertEquals(1, delta)
         val revived = repository.chapters(bookId).single()
+        // A revived URL keeps its identity: progress and downloads reference it.
+        assertEquals(originalId, revived.chapterId)
         assertEquals(2, revived.idx)
         assertEquals("One revived", revived.title)
         assertEquals(1, repository.chapterCount(bookId))

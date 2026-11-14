@@ -31,6 +31,5 @@ interface LibraryBookRefreshPort {
 data class RefreshResult(
     val count: Int? = null,
     val error: PluginError? = null,
-    val lastPage: Int? = null,
     val added: Int = 0,
 )

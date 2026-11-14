@@ -320,12 +320,23 @@ fun MiruShell(
     }
     LaunchedEffect(openUpdates) {
         if (!openUpdates) return@LaunchedEffect
+        if (navController.currentDestination?.route == "updates") {
+            // A repeated notification tap must not stack a second Updates screen.
+            MiruLog.event("nav", "open-updates-skip")
+            onOpenUpdatesHandled()
+            return@LaunchedEffect
+        }
         MiruLog.event("nav", "open-updates")
         navController.navigate("updates")
         onOpenUpdatesHandled()
     }
     LaunchedEffect(openAppUpdate) {
         if (!openAppUpdate) return@LaunchedEffect
+        if (navController.currentDestination?.route == SettingsRoutes.Updates) {
+            MiruLog.event("nav", "open-app-update-skip")
+            onOpenAppUpdateHandled()
+            return@LaunchedEffect
+        }
         MiruLog.event("nav", "open-app-update")
         navController.navigate(SettingsRoutes.Updates)
         onOpenAppUpdateHandled()

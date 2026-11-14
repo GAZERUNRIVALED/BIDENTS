@@ -138,6 +138,24 @@ class PluginBookDataProviderIncrementalTest {
                     storedPage = args?.getOrNull(1) as Int?
                     Unit
                 }
+                "replaceChaptersAndStamp" -> {
+                    val seeds = (args?.getOrNull(1) as List<*>).filterIsInstance<ChapterSeed>()
+                    replaced = seeds
+                    rows.clear()
+                    rows += seeds.map { seed ->
+                        ChapterEntity(
+                            chapterId = seed.index.toLong(),
+                            bookId = book.bookId,
+                            idx = seed.index,
+                            url = seed.url,
+                            title = seed.title,
+                            updatedAt = 1L,
+                        )
+                    }
+                    counter = rows.size
+                    storedPage = args?.getOrNull(2) as Int?
+                    rows.toList()
+                }
                 "updateTotalChapters" -> {
                     totalUpdated = args?.getOrNull(1) as Int
                     Unit
@@ -424,6 +442,30 @@ class PluginBookDataProviderIncrementalTest {
         assertEquals(0, dao.appendCalls)
         assertTrue(dao.replaced != null)
         assertEquals(1, dao.storedPage)
+    }
+
+    @Test
+    fun `the stored row page wins over the caller argument`() = runTest {
+        PluginBookIndex.put(url, sourceId)
+        val dao = FakeDao(
+            book().copy(chaptersLastPage = 2),
+            (1..61).map { chapter(it) }.toMutableList(),
+        )
+        val source = FakePageSource(
+            mapOf(
+                2 to ChapterPage(listOf(ch(2)), totalPages = 3),
+                3 to ChapterPage(listOf(ch(62), ch(63)), totalPages = 3),
+            ),
+        )
+
+        val result = provider(dao, source).refreshChapterCountOutcome(url, lastPage = 1)
+
+        // The row and the rows it describes are the safe pair; the parameter is
+        // only a fallback when the row has no page.
+        assertEquals(listOf(2, 3), source.pageCalls)
+        assertEquals(listOf(62, 63), dao.appended.map { it.index })
+        assertEquals(3, dao.storedPage)
+        assertEquals(63, ok(result).count)
     }
 
     @Test

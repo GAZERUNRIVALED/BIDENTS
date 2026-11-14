@@ -951,6 +951,19 @@ interface LibraryDao {
     )
     suspend fun updateChapterTotals(bookId: Long, total: Int, newChapters: Int, at: Long)
 
+    // Full replace in one transaction: a crash between the row write and the
+    // page stamp cannot leave a stale chaptersLastPage.
+    @Transaction
+    suspend fun replaceChaptersAndStamp(
+        bookId: Long,
+        seeds: List<ChapterSeed>,
+        page: Int?,
+        at: Long,
+    ) {
+        reconcileChapters(bookId, seeds, at)
+        updateChaptersLastPage(bookId, page, at)
+    }
+
     // Single books UPDATE after an append: total, badge, lastUpdateAt,
     // lastUpdateCheckAt and the chapter-list page all commit with the rows.
     @Query(

@@ -417,7 +417,7 @@ private fun updateRoomIdentity(connection: SQLiteConnection) {
     )
 }
 
-private fun verifyRestoredDatabase(connection: SQLiteConnection, expectedVersion: Int) {
+internal fun verifyRestoredDatabase(connection: SQLiteConnection, expectedVersion: Int) {
     connection.requireIntegrity()
     val version = connection.userVersion()
     if (version != expectedVersion) {

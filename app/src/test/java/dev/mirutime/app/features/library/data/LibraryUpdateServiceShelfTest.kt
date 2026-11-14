@@ -78,10 +78,17 @@ class LibraryUpdateServiceShelfTest {
         private val result: Int? = 1,
         private val added: Int = result ?: 0,
         private val failure: Exception? = null,
+        private val hash: String? = null,
     ) : LibraryBookRefreshPort {
         val refreshed = mutableListOf<String>()
+        val hashCalls = mutableListOf<String>()
 
         override suspend fun refreshChapterCount(bookUrl: String): Int? = result
+
+        override suspend fun chapterListHash(bookUrl: String): String? {
+            hashCalls += bookUrl
+            return hash
+        }
 
         override suspend fun refreshChapterCountResult(
             bookUrl: String,
@@ -91,6 +98,42 @@ class LibraryUpdateServiceShelfTest {
             failure?.let { throw it }
             return RefreshResult(count = result, added = added)
         }
+    }
+
+    @Test
+    fun `paged book skips the chapter-list hash probe`() = runTest {
+        val books = listOf(book(1, "reading").copy(chaptersLastPage = 2))
+        val provider = StubProvider(result = 3, hash = "h")
+        val service = LibraryUpdateService(
+            provider = provider,
+            library = LibraryRepository(libraryDao(books)),
+            now = { 1_000L },
+        )
+
+        service.checkAll()
+
+        // A known page means the source is paginated: probing the hash costs a
+        // request and cannot short-circuit, so it must not happen.
+        assertTrue(provider.hashCalls.isEmpty())
+        assertEquals(1, provider.refreshed.size)
+    }
+
+    @Test
+    fun `non-paged book short-circuits on a matching hash`() = runTest {
+        val books = listOf(book(1, "reading").copy(chapterListHash = "h"))
+        val provider = StubProvider(result = 3, hash = "h")
+        val service = LibraryUpdateService(
+            provider = provider,
+            library = LibraryRepository(libraryDao(books)),
+            now = { 1_000L },
+        )
+
+        val summary = service.checkAll()
+
+        assertEquals(1, provider.hashCalls.size)
+        assertTrue(provider.refreshed.isEmpty())
+        assertEquals(1, summary.checked)
+        assertEquals(0, summary.failed)
     }
 
     @Test

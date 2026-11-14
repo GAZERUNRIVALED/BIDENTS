@@ -27,7 +27,6 @@ class BookRefreshPortAdapter(
     ): RefreshResult = when (val outcome = provider.refreshChapterCountOutcome(bookUrl, lastPage)) {
         is Outcome.Ok -> RefreshResult(
             count = outcome.value?.count,
-            lastPage = outcome.value?.lastPage,
             added = outcome.value?.added ?: 0,
         )
         is Outcome.Err -> RefreshResult(

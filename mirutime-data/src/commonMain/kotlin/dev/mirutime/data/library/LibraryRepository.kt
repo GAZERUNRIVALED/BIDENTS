@@ -732,6 +732,17 @@ class LibraryRepository(
         at: Long,
     ): List<ChapterEntity> = dao.reconcileChapters(bookId, seeds, at)
 
+    /**
+     * Full replace and chapter-list page stamp in one transaction, so a crash
+     * between the two writes cannot leave a stale page counter.
+     */
+    suspend fun replaceChaptersAndStamp(
+        bookId: Long,
+        seeds: List<ChapterSeed>,
+        page: Int?,
+        at: Long,
+    ) = dao.replaceChaptersAndStamp(bookId, seeds, page, at)
+
     /** Append-only chapter write; returns the inserted + revived count. */
     suspend fun appendChaptersAndStamp(
         bookId: Long,

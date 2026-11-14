@@ -258,15 +258,19 @@ class LibraryUpdateService(
             sourceHealth.remove(sourceId)
             return
         }
-        val failures = (sourceHealth[sourceId]?.failures ?: 0) + 1
-        sourceHealth[sourceId] = SourceHealth(
-            failures = failures,
-            cooldownUntil = if (failures >= FailureCooldownThreshold) {
-                now() + FailureCooldownMs
-            } else {
-                0L
-            },
-        )
+        val at = now()
+        // compute is atomic: parallel books of one source must not lose counts.
+        sourceHealth.compute(sourceId) { _, old ->
+            val failures = (old?.failures ?: 0) + 1
+            SourceHealth(
+                failures = failures,
+                cooldownUntil = if (failures >= FailureCooldownThreshold) {
+                    at + FailureCooldownMs
+                } else {
+                    0L
+                },
+            )
+        }
     }
 
     private sealed interface UpdateResult {

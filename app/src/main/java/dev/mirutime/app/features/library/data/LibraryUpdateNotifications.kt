@@ -191,7 +191,9 @@ internal fun libraryUpdateLines(
     format: (String, Int) -> String,
     more: (Int) -> String,
 ): List<String> {
-    val valid = books.filter { it.first.isNotBlank() && it.second > 0 }
+    val valid = books
+        .filter { it.first.isNotBlank() && it.second > 0 }
+        .sortedWith(compareByDescending<Pair<String, Int>> { it.second }.thenBy { it.first })
     val shown = valid.take(limit).map { (title, count) -> format(title, count) }
     val remaining = valid.size - shown.size
     return if (remaining > 0) shown + more(remaining) else shown
@@ -204,6 +206,10 @@ internal fun libraryUpdateInboxLines(
     format: (String, Int) -> String,
     more: (Int) -> String,
     skippedFormat: (Int) -> String,
-): List<String> =
-    libraryUpdateLines(books, format = format, more = more) +
-        if (skipped > 0) listOf(skippedFormat(skipped)) else emptyList()
+): List<String> {
+    if (skipped <= 0) return libraryUpdateLines(books, format = format, more = more)
+    // The skipped line takes the last slot: three book lines plus the "more"
+    // summary keep the inbox at five lines together with it.
+    return libraryUpdateLines(books, limit = 3, format = format, more = more) +
+        skippedFormat(skipped)
+}
