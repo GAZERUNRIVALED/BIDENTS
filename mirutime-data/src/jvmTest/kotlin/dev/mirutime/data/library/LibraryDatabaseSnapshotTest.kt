@@ -80,6 +80,7 @@ class LibraryDatabaseSnapshotTest {
                 listOf(ChapterSeed(1, "local://novel#1", "One")),
                 at = 1L,
             )
+            repository.updateChaptersLastPage(novel, page = 9, at = 1L)
             val manga = repository.saveBook(book("local://manga", "local-manga"))
             repository.replaceChapters(
                 manga,
@@ -97,6 +98,7 @@ class LibraryDatabaseSnapshotTest {
             assertEquals(1, connection.long("SELECT COUNT(*) FROM books"))
             assertEquals(1, connection.long("SELECT COUNT(*) FROM chapters"))
             assertEquals("local-books", connection.text("SELECT installId FROM books"))
+            assertEquals(9, connection.long("SELECT chaptersLastPage FROM books"))
             assertEquals(1, connection.long("SELECT COUNT(*) FROM book_search"))
         }
         // The manifest must describe the snapshot, not the live database.

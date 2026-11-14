@@ -371,6 +371,7 @@ class NovelaBackupStager(
                 lastChapterId = null,
                 lastChapterIndex = null,
                 chapterListHash = book.chaptersListHash,
+                chaptersLastPage = book.chaptersLastPage?.toInt(),
                 lastUpdateAt = book.updatedAt.takeIf { it > 0 },
                 genresJson = genresJson(book.genres),
                 description = book.description,

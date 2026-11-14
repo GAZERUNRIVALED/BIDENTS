@@ -25,11 +25,33 @@ class ReaderOpenResolverTest {
     }
 
     @Test
-    fun `saved read chapter continues at first unread`() {
+    fun `saved read chapter reopens at the saved anchor`() {
         val anchor = ReadingAnchor("b#chapter=1", BlockId("b#chapter=1", 1), 0)
         val saved = SavedReading(anchor, 0, 1, 0)
         val target = ReaderOpenResolver.forContinue(book(1), saved)
+        assertEquals(ReaderOpenTarget.Chapter(1, restoreAnchor = true), target)
+    }
+
+    @Test
+    fun `finished book reopens the saved chapter not the end`() {
+        val anchor = ReadingAnchor("b#chapter=2", BlockId("b#chapter=2", 1), 0)
+        val saved = SavedReading(anchor, 0, 1, 0)
+        val target = ReaderOpenResolver.forContinue(book(1, 2, 3), saved)
+        assertEquals(ReaderOpenTarget.Chapter(2, restoreAnchor = true), target)
+    }
+
+    @Test
+    fun `saved anchor missing from the list falls back to first unread`() {
+        val anchor = ReadingAnchor("b#chapter=99", BlockId("b#chapter=99", 0), 0)
+        val saved = SavedReading(anchor, 0, 1, 0)
+        val target = ReaderOpenResolver.forContinue(book(1), saved)
         assertEquals(ReaderOpenTarget.Chapter(2, restoreAnchor = false), target)
+    }
+
+    @Test
+    fun `empty chapter list opens empty`() {
+        val empty = ReaderBook(bookUrl = "b", title = "Book", chapters = emptyList())
+        assertEquals(ReaderOpenTarget.Empty, ReaderOpenResolver.forContinue(empty, null))
     }
 
     @Test

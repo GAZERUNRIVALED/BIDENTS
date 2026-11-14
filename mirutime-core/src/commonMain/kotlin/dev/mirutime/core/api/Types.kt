@@ -80,6 +80,13 @@ data class Chapter(
     val uploaded: Long? = null,
 )
 
+// One page of a paginated chapter list (NoveLA parsePage): the app fetches a
+// single page for incremental updates instead of draining the whole list.
+data class ChapterPage(
+    val chapters: List<Chapter>,
+    val totalPages: Int,
+)
+
 sealed class ChapterContent {
     data class Text(val text: String) : ChapterContent()
     data class Pages(val pageUrls: List<String>) : ChapterContent()

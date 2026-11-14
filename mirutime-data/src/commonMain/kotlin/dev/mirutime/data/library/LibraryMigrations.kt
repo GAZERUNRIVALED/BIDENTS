@@ -60,6 +60,14 @@ object LibraryMigrations {
         migrateV11ToV12(connection)
     }
 
+    /**
+     * Schema v13: the last known chapter-list page, so an interrupted/legacy
+     * import can resume paging. Additive; null means unknown.
+     */
+    val MIGRATION_12_13: Migration = Migration(12, 13) { connection ->
+        migrateV12ToV13(connection)
+    }
+
     val ALL: Array<Migration> =
         arrayOf(
             MIGRATION_6_7,
@@ -68,6 +76,7 @@ object LibraryMigrations {
             MIGRATION_9_10,
             MIGRATION_10_11,
             MIGRATION_11_12,
+            MIGRATION_12_13,
         )
 }
 
@@ -152,6 +161,7 @@ private fun migrateBackupSteps(connection: SQLiteConnection, fromVersion: Int) {
     if (fromVersion < 10) migrateV9ToV10(connection)
     if (fromVersion < 11) migrateV10ToV11(connection)
     if (fromVersion < 12) migrateV11ToV12(connection)
+    if (fromVersion < 13) migrateV12ToV13(connection)
 }
 
 private fun migrateV6ToV7(connection: SQLiteConnection) {
@@ -383,16 +393,27 @@ private fun migrateV11ToV12(connection: SQLiteConnection) {
 }
 
 /**
+ * v13 byte-for-byte matches [LibraryMigrations.MIGRATION_12_13]: one nullable
+ * `books` column, no data rewrite. Column-guarded because a downgraded
+ * test/snapshot file can already carry it while still reporting v12.
+ */
+private fun migrateV12ToV13(connection: SQLiteConnection) {
+    if ("chaptersLastPage" !in connection.columns("books")) {
+        connection.exec("ALTER TABLE books ADD COLUMN chaptersLastPage INTEGER")
+    }
+}
+
+/**
  * Room refuses to open a migrated file whose `room_master_table` still carries
  * an older hash. The live import opens the staged database through Room, so the
- * migrator publishes the current identity itself. `12.json` is the source of
+ * migrator publishes the current identity itself. `13.json` is the source of
  * truth.
  */
 private fun updateRoomIdentity(connection: SQLiteConnection) {
     if (!connection.tableExists("room_master_table")) return
     connection.exec(
         "INSERT OR REPLACE INTO room_master_table (id, identity_hash) " +
-            "VALUES (42, '$V12_IDENTITY_HASH')",
+            "VALUES (42, '$V13_IDENTITY_HASH')",
     )
 }
 
@@ -468,12 +489,21 @@ private fun verifyRestoredDatabase(connection: SQLiteConnection, expectedVersion
             error("Migrated database is missing index $index on $table")
         }
     }
+    REQUIRED_V13_COLUMNS.forEach { (table, columns) ->
+        val actual = connection.columns(table)
+        columns.forEach { column ->
+            if (column !in actual) {
+                error("Migrated database is missing column $table.$column")
+            }
+        }
+    }
 }
 
 private const val V9_IDENTITY_HASH = "117dd4519b1602322a7e187aa9956185"
 private const val V10_IDENTITY_HASH = "5290005f22d81a551a46b9dd80932d07"
 private const val V11_IDENTITY_HASH = "a2fd3b84ea24a48d3ef9e35e589a2271"
 private const val V12_IDENTITY_HASH = "0eb1c3b620a09fa57dfa6c2adfb95bb0"
+private const val V13_IDENTITY_HASH = "d34c0daa9eeb4a8573c31d7e7e31a96c"
 
 private val REQUIRED_V7_TABLES = listOf(
     "books",
@@ -531,6 +561,10 @@ private val REQUIRED_V12_COLUMNS = mapOf(
 private val REQUIRED_V12_INDEXES = mapOf(
     "index_local_book_files_origin_catalog_url_origin_entry_url" to "local_book_files",
     "index_opds_entries_catalogUrl_updatedAt" to "opds_entries",
+)
+
+private val REQUIRED_V13_COLUMNS = mapOf(
+    "books" to listOf("chaptersLastPage"),
 )
 
 private fun SQLiteConnection.exec(sql: String) {

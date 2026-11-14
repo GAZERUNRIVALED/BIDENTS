@@ -548,19 +548,28 @@ interface LibraryDao {
     @Query("UPDATE books SET totalChapters = :total WHERE bookId = :bookId")
     suspend fun updateTotalChapters(bookId: Long, total: Int)
 
-    // `newChapters` is the UNSEEN badge: it accumulates newly detected chapters
-    // and is only cleared by markUpdatesSeen. A later no-change run must never
-    // zero a badge the user has not looked at yet (FR-098/FR-099); the delta is
-    // measured against the previously recorded total, so it cannot double-count.
+    @Query("UPDATE books SET chaptersLastPage = :page, updatedAt = :at WHERE bookId = :bookId")
+    suspend fun updateChaptersLastPage(bookId: Long, page: Int?, at: Long)
+
+    @Query("SELECT COUNT(*) FROM chapters WHERE bookId = :bookId AND removedAt IS NULL")
+    suspend fun chapterCount(bookId: Long): Int
+
+    @Query("SELECT MAX(idx) FROM chapters WHERE bookId = :bookId AND removedAt IS NULL")
+    suspend fun maxChapterIndex(bookId: Long): Int?
+
+    @Query("UPDATE books SET lastUpdateCheckAt = :at, updatedAt = :at WHERE bookId = :bookId")
+    suspend fun stampLastUpdateCheck(bookId: Long, at: Long)
+
+    // `newChapters` is the UNSEEN badge: only chapter writers move it, and only
+    // markUpdatesSeen clears it. A check that found nothing writes no badge and
+    // no lastUpdateAt.
     @Query(
         "UPDATE books SET totalChapters = :total, " +
-            "newChapters = newChapters + :newChapters, " +
             "chapterListHash = COALESCE(:hash, chapterListHash), " +
             "lastUpdateCheckAt = :at, " +
-            "lastUpdateAt = CASE WHEN :newChapters > 0 THEN :at ELSE lastUpdateAt END, " +
             "updatedAt = :at WHERE bookId = :bookId",
     )
-    suspend fun recordUpdateCheck(bookId: Long, total: Int, newChapters: Int, hash: String?, at: Long)
+    suspend fun recordUpdateCheck(bookId: Long, total: Int, hash: String?, at: Long)
 
     @Query("UPDATE books SET newChapters = 0, updatedAt = :at WHERE bookId = :bookId")
     suspend fun markUpdatesSeen(bookId: Long, at: Long)
@@ -928,9 +937,79 @@ interface LibraryDao {
         at = at,
         upsertChunk = { rows -> upsertChapterRows(rows) },
         markRemovedChunk = { ids, removedAt -> markChaptersRemoved(ids, removedAt) },
-        updateTotal = { total -> updateTotalChapters(bookId, total) },
+        updateTotal = { total, delta -> updateChapterTotals(bookId, total, delta, at) },
         readChapters = { chapters(bookId) },
     )
+
+    // Badge + lastUpdateAt owner for a full replace: the delta is the incoming
+    // active count minus the stored active count, so a no-change run writes 0.
+    // An empty store means a first fill (import), which writes no badge either.
+    @Query(
+        "UPDATE books SET totalChapters = :total, newChapters = newChapters + :newChapters, " +
+            "lastUpdateAt = CASE WHEN :newChapters > 0 THEN :at ELSE lastUpdateAt END, " +
+            "updatedAt = :at WHERE bookId = :bookId",
+    )
+    suspend fun updateChapterTotals(bookId: Long, total: Int, newChapters: Int, at: Long)
+
+    // Single books UPDATE after an append: total, badge, lastUpdateAt,
+    // lastUpdateCheckAt and the chapter-list page all commit with the rows.
+    @Query(
+        "UPDATE books SET totalChapters = :total, newChapters = newChapters + :newChapters, " +
+            "lastUpdateAt = CASE WHEN :newChapters > 0 THEN :at ELSE lastUpdateAt END, " +
+            "lastUpdateCheckAt = :at, chaptersLastPage = :page, updatedAt = :at " +
+            "WHERE bookId = :bookId",
+    )
+    suspend fun stampAppend(
+        bookId: Long,
+        total: Int,
+        newChapters: Int,
+        page: Int?,
+        at: Long,
+    )
+
+    /**
+     * Append-only counterpart of [reconcileChapters]: only URLs that are new
+     * (or only exist soft-removed) are written, existing rows keep their read
+     * flags and idx. Returns the number of inserted + revived rows.
+     */
+    @Transaction
+    suspend fun appendChaptersAndStamp(
+        bookId: Long,
+        seeds: List<ChapterSeed>,
+        page: Int?,
+        at: Long,
+    ): Int {
+        val incoming = seeds.filter { it.url.isNotBlank() }.distinctBy { it.url }
+        val existing = if (incoming.isEmpty()) emptyMap() else allChapters(bookId).associateBy { it.url }
+        val rows = incoming.mapNotNull { seed ->
+            val old = existing[seed.url]
+            when {
+                old == null -> ChapterEntity(
+                    bookId = bookId,
+                    idx = seed.index,
+                    url = seed.url,
+                    title = seed.title,
+                    hash = seed.hash,
+                    updatedAt = at,
+                )
+                old.removedAt != null -> old.copy(
+                    idx = seed.index,
+                    title = seed.title,
+                    hash = seed.hash ?: old.hash,
+                    removedAt = null,
+                    updatedAt = at,
+                )
+                else -> null
+            }
+        }
+        for (chunk in rows.chunked(ChapterChunkSize)) {
+            currentCoroutineContext().ensureActive()
+            upsertChapterRows(chunk)
+        }
+        val delta = rows.size
+        stampAppend(bookId, chapterCount(bookId), delta, page, at)
+        return delta
+    }
 
     @Query(
         "UPDATE chapters SET url = :newBase || SUBSTR(url, LENGTH(:oldBase) + 1), " +
@@ -1925,9 +2004,10 @@ internal suspend fun reconcileChapterRows(
     at: Long,
     upsertChunk: suspend (List<ChapterEntity>) -> Unit,
     markRemovedChunk: suspend (List<Long>, Long) -> Unit,
-    updateTotal: suspend (Int) -> Unit,
+    updateTotal: suspend (Int, Int) -> Unit,
     readChapters: suspend () -> List<ChapterEntity>,
 ): List<ChapterEntity> {
+    val existingActive = existing.values.count { it.removedAt == null }
     val incoming = seeds.filter { it.url.isNotBlank() }.distinctBy { it.url }
     val rows = incoming.map { seed ->
         val old = existing[seed.url]
@@ -1958,7 +2038,14 @@ internal suspend fun reconcileChapterRows(
         currentCoroutineContext().ensureActive()
         markRemovedChunk(chunk, at)
     }
-    updateTotal(incoming.size)
+    // The first fill is not an update: an import must not badge the whole
+    // catalogue as unseen chapters.
+    val delta = if (existingActive == 0) {
+        0
+    } else {
+        (incoming.size - existingActive).coerceAtLeast(0)
+    }
+    updateTotal(incoming.size, delta)
     return readChapters()
 }
 

@@ -1,5 +1,6 @@
 package dev.mirutime.app.features.library.data
 
+import dev.mirutime.core.api.PluginError
 import dev.mirutime.data.library.BookEntity
 import dev.mirutime.data.library.LibraryDao
 import dev.mirutime.data.library.LibraryRepository
@@ -51,6 +52,7 @@ class LibraryUpdateServiceShelfTest {
     private fun libraryDao(
         books: List<BookEntity>,
         recorded: MutableList<Pair<Long, Int>> = mutableListOf(),
+        stamped: MutableList<Long> = mutableListOf(),
     ): LibraryDao =
         Proxy.newProxyInstance(
             LibraryDao::class.java.classLoader,
@@ -64,20 +66,30 @@ class LibraryUpdateServiceShelfTest {
                     recorded += (args?.get(0) as Long) to (args?.get(1) as Int)
                     Unit
                 }
+                "stampLastUpdateCheck" -> {
+                    stamped += args?.get(0) as Long
+                    Unit
+                }
                 else -> throw AssertionError("Unexpected DAO call: ${method.name}")
             }
         } as LibraryDao
 
     private class StubProvider(
         private val result: Int? = 1,
+        private val added: Int = result ?: 0,
         private val failure: Exception? = null,
     ) : LibraryBookRefreshPort {
         val refreshed = mutableListOf<String>()
 
-        override suspend fun refreshChapterCount(bookUrl: String): Int? {
+        override suspend fun refreshChapterCount(bookUrl: String): Int? = result
+
+        override suspend fun refreshChapterCountResult(
+            bookUrl: String,
+            lastPage: Int?,
+        ): RefreshResult {
             refreshed += bookUrl
             failure?.let { throw it }
-            return result
+            return RefreshResult(count = result, added = added)
         }
     }
 
@@ -119,7 +131,16 @@ class LibraryUpdateServiceShelfTest {
 
         val summary = service.checkAll()
 
-        assertEquals(UpdateCheckSummary(checked = 1, updated = 1, failed = 0), summary)
+        assertEquals(
+            UpdateCheckSummary(
+                checked = 1,
+                updated = 1,
+                failed = 0,
+                newChapters = 3,
+                lines = listOf("Book 1" to 3),
+            ),
+            summary,
+        )
         assertEquals(listOf(1L to 3), recorded)
     }
 
@@ -127,9 +148,10 @@ class LibraryUpdateServiceShelfTest {
     fun `empty refresh result is a failure and is not recorded`() = runTest {
         val books = listOf(book(1, "reading"))
         val recorded = mutableListOf<Pair<Long, Int>>()
+        val stamped = mutableListOf<Long>()
         val service = LibraryUpdateService(
             provider = StubProvider(result = null),
-            library = LibraryRepository(libraryDao(books, recorded)),
+            library = LibraryRepository(libraryDao(books, recorded, stamped)),
             now = { 1_000L },
         )
 
@@ -137,15 +159,17 @@ class LibraryUpdateServiceShelfTest {
 
         assertEquals(UpdateCheckSummary(checked = 0, updated = 0, failed = 1), summary)
         assertTrue(recorded.isEmpty())
+        assertEquals(listOf(1L), stamped)
     }
 
     @Test
     fun `throwing refresh is a failure and is not recorded`() = runTest {
         val books = listOf(book(1, "reading"))
         val recorded = mutableListOf<Pair<Long, Int>>()
+        val stamped = mutableListOf<Long>()
         val service = LibraryUpdateService(
             provider = StubProvider(failure = IllegalStateException("boom")),
-            library = LibraryRepository(libraryDao(books, recorded)),
+            library = LibraryRepository(libraryDao(books, recorded, stamped)),
             now = { 1_000L },
         )
 
@@ -153,14 +177,16 @@ class LibraryUpdateServiceShelfTest {
 
         assertEquals(UpdateCheckSummary(checked = 0, updated = 0, failed = 1), summary)
         assertTrue(recorded.isEmpty())
+        assertEquals(listOf(1L), stamped)
     }
 
     @Test
-    fun `overlapping runs record the new chapters once`() = runTest {
-        // The badge accumulates deltas, so two overlapping runs must not both
-        // count the same new chapters against the same old total.
+    fun `overlapping runs are serialized`() = runTest {
+        // A run reads the library snapshot and only then touches the provider;
+        // two runs at once would read the same stale total. The gate keeps the
+        // second run waiting until the first has written its result.
         val books = mutableMapOf(1L to book(1, "reading", total = 100))
-        val badges = mutableMapOf<Long, Int>()
+        val totals = mutableListOf<Int>()
         val entered = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
         var refreshes = 0
@@ -174,8 +200,7 @@ class LibraryUpdateServiceShelfTest {
                 "recordUpdateCheck" -> {
                     val id = args!![0] as Long
                     val total = args[1] as Int
-                    val delta = args[2] as Int
-                    badges[id] = (badges[id] ?: 0) + delta
+                    totals += total
                     books[id] = books.getValue(id).copy(totalChapters = total)
                     Unit
                 }
@@ -183,11 +208,16 @@ class LibraryUpdateServiceShelfTest {
             }
         } as LibraryDao
         val provider = object : LibraryBookRefreshPort {
-            override suspend fun refreshChapterCount(bookUrl: String): Int? {
+            override suspend fun refreshChapterCount(bookUrl: String): Int? = 110
+
+            override suspend fun refreshChapterCountResult(
+                bookUrl: String,
+                lastPage: Int?,
+            ): RefreshResult {
                 refreshes++
                 entered.complete(Unit)
                 release.await()
-                return 110
+                return RefreshResult(count = 110, added = 10)
             }
         }
         val service = LibraryUpdateService(
@@ -202,11 +232,122 @@ class LibraryUpdateServiceShelfTest {
         // Let the second run reach the gate while the first still holds it.
         yield()
         release.complete(Unit)
-        first.await()
+        val firstSummary = first.await()
         second.await()
 
-        // Without the gate, both runs read 100 and add 10: the badge would be 20.
-        assertEquals(10, badges[1])
+        assertEquals(10, firstSummary.newChapters)
         assertEquals(2, refreshes)
+        assertEquals(listOf(110, 110), totals)
+    }
+
+    private val networkError = PluginError.Network(
+        cause = "network",
+        status = 503,
+        reason = "Service Unavailable",
+        host = "site.example",
+        path = "/book/1",
+    )
+
+    private fun sourceProvider(
+        calls: MutableList<String>,
+        result: (Int) -> RefreshResult,
+    ): LibraryBookRefreshPort = object : LibraryBookRefreshPort {
+        override suspend fun refreshChapterCount(bookUrl: String): Int? = null
+
+        override suspend fun refreshChapterCountResult(
+            bookUrl: String,
+            lastPage: Int?,
+        ): RefreshResult {
+            calls += bookUrl
+            return result(calls.size)
+        }
+    }
+
+    @Test
+    fun `third consecutive failure cools the source down and skips the rest`() = runTest {
+        val books = (1L..5L).map { book(it, "reading") }
+        val calls = mutableListOf<String>()
+        val provider = sourceProvider(calls) { call ->
+            if (call <= 3) {
+                RefreshResult(error = networkError)
+            } else {
+                RefreshResult(count = 1, added = 1)
+            }
+        }
+        val service = LibraryUpdateService(
+            provider = provider,
+            library = LibraryRepository(libraryDao(books)),
+            now = { 1_000L },
+        )
+
+        val summary = service.checkAll()
+
+        assertEquals(3, summary.failed)
+        assertEquals(2, summary.skipped)
+        assertEquals(0, summary.checked)
+        assertEquals(3, calls.size)
+    }
+
+    @Test
+    fun `a success resets the consecutive failure count`() = runTest {
+        val books = (1L..7L).map { book(it, "reading") }
+        val calls = mutableListOf<String>()
+        val provider = sourceProvider(calls) { call ->
+            if (call == 3) RefreshResult(count = 1) else RefreshResult(error = networkError)
+        }
+        val service = LibraryUpdateService(
+            provider = provider,
+            library = LibraryRepository(libraryDao(books)),
+            now = { 1_000L },
+        )
+
+        val summary = service.checkAll()
+
+        // Calls 1-2 fail, 3 succeeds and resets, 4-6 fail again: the seventh
+        // book is skipped, not failed.
+        assertEquals(5, summary.failed)
+        assertEquals(1, summary.checked)
+        assertEquals(1, summary.skipped)
+        assertEquals(6, calls.size)
+    }
+
+    @Test
+    fun `per-source grouping respects maxConcurrency`() = runTest {
+        val books = listOf(
+            book(1, "reading").copy(installId = "a"),
+            book(2, "reading").copy(installId = "a"),
+            book(3, "reading").copy(installId = "b"),
+            book(4, "reading").copy(installId = "b"),
+        )
+        var active = 0
+        var maxActive = 0
+        val calls = mutableListOf<String>()
+        val provider = object : LibraryBookRefreshPort {
+            override suspend fun refreshChapterCount(bookUrl: String): Int? = 1
+
+            override suspend fun refreshChapterCountResult(
+                bookUrl: String,
+                lastPage: Int?,
+            ): RefreshResult {
+                calls += bookUrl
+                active++
+                maxActive = maxOf(maxActive, active)
+                yield()
+                active--
+                return RefreshResult(count = 1)
+            }
+        }
+        val service = LibraryUpdateService(
+            provider = provider,
+            library = LibraryRepository(libraryDao(books)),
+            now = { 1_000L },
+            maxConcurrency = 1,
+        )
+
+        val summary = service.checkAll()
+
+        assertEquals(1, maxActive)
+        assertEquals(4, calls.size)
+        assertEquals(4, summary.checked)
     }
 }

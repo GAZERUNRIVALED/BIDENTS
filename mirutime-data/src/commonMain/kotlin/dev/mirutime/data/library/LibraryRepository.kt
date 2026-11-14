@@ -669,10 +669,9 @@ class LibraryRepository(
     suspend fun recordUpdateCheck(
         bookId: Long,
         total: Int,
-        newChapters: Int,
         hash: String?,
         at: Long,
-    ) = dao.recordUpdateCheck(bookId, total, newChapters, hash, at)
+    ) = dao.recordUpdateCheck(bookId, total, hash, at)
 
     suspend fun markUpdatesSeen(bookId: Long, at: Long) = dao.markUpdatesSeen(bookId, at)
 
@@ -732,6 +731,24 @@ class LibraryRepository(
         seeds: List<ChapterSeed>,
         at: Long,
     ): List<ChapterEntity> = dao.reconcileChapters(bookId, seeds, at)
+
+    /** Append-only chapter write; returns the inserted + revived count. */
+    suspend fun appendChaptersAndStamp(
+        bookId: Long,
+        seeds: List<ChapterSeed>,
+        page: Int?,
+        at: Long,
+    ): Int = dao.appendChaptersAndStamp(bookId, seeds, page, at)
+
+    suspend fun updateChaptersLastPage(bookId: Long, page: Int?, at: Long) =
+        dao.updateChaptersLastPage(bookId, page, at)
+
+    suspend fun chapterCount(bookId: Long): Int = dao.chapterCount(bookId)
+
+    suspend fun maxChapterIndex(bookId: Long): Int? = dao.maxChapterIndex(bookId)
+
+    suspend fun stampLastUpdateCheck(bookId: Long, at: Long) =
+        dao.stampLastUpdateCheck(bookId, at)
 
     suspend fun deleteChaptersByIndex(bookId: Long, from: Int, to: Int, at: Long) =
         dao.deleteChaptersByIndex(bookId, from, to, at)

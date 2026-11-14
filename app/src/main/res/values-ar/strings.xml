@@ -150,6 +150,7 @@
     <string name="book_chapters_loading">جارٍ تحميل الفصول…</string>
     <string name="book_chapters_refreshing">جارٍ تحديث الفصول…</string>
     <string name="book_chapters_refresh_cd">تحديث الفصول</string>
+    <string name="book_chapters_full_reparse">إعادة تحميل قائمة الفصول كاملة</string>
     <string name="book_chapters_refresh_failed">تعذّر تحديث الفصول</string>
     <string name="book_chapters_refresh_failed_desc">لم يُرجع المصدر قائمة الفصول. أعد المحاولة لسؤاله مرة أخرى.</string>
     <string name="book_no_chapters">لا توجد فصول</string>
@@ -990,6 +991,8 @@
     <string name="st_updates_notif_new_failed_fmt">%1$d فصل جديد في %2$d كتاب؛ فشل %3$d كتاب.</string>
     <string name="st_updates_notif_failed_title">فشل تحديث المكتبة</string>
     <string name="st_updates_notif_failed_fmt">تعذّر فحص %1$d كتاب.</string>
+    <string name="st_updates_notif_skipped_fmt">تم تخطي: %1$d (المصدر في فترة تهدئة)</string>
+    <string name="st_updates_pending_fmt">بها تحديثات: %1$d</string>
     <string name="st_updates_notif_failed_generic">فشل تشغيل التحديث.</string>
     <string name="st_updates_notif_book_line_fmt">%1$s — +%2$d</string>
     <string name="st_updates_notif_more_fmt">و%1$d أخرى</string>

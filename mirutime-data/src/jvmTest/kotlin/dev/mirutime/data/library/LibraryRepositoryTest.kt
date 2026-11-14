@@ -333,44 +333,204 @@ class LibraryRepositoryTest {
     }
 
     @Test
-    fun `update check records new chapters and mark seen clears them`() = runTest {
+    fun `update check records total and hash without touching the badge`() = runTest {
         val book = book("https://site/book/updates", inLibrary = true, lastReadAt = null)
         repository.saveBook(book)
         val bookId = repository.book(book.bookUrl)!!.bookId
 
-        repository.recordUpdateCheck(bookId, total = 120, newChapters = 20, hash = null, at = 100L)
+        repository.recordUpdateCheck(bookId, total = 120, hash = "h1", at = 100L)
         val checked = repository.book(bookId)!!
         assertEquals(120, checked.totalChapters)
-        assertEquals(20, checked.newChapters)
+        // The badge and lastUpdateAt belong to chapter writers, not checks.
+        assertEquals(0, checked.newChapters)
+        assertNull(checked.lastUpdateAt)
         assertEquals(100L, checked.lastUpdateCheckAt)
-        assertEquals(100L, checked.lastUpdateAt)
-        assertEquals(listOf(bookId), repository.booksWithUpdates().map { it.bookId })
-
-        repository.markUpdatesSeen(bookId, at = 200L)
-        assertEquals(0, repository.book(bookId)?.newChapters)
+        assertEquals("h1", checked.chapterListHash)
         assertTrue(repository.booksWithUpdates().isEmpty())
     }
 
     @Test
-    fun `update check keeps the unseen badge and accumulates new chapters`() = runTest {
+    fun `update check leaves an unseen badge intact`() = runTest {
         val book = book("https://site/book/updates2", inLibrary = true, lastReadAt = null)
         repository.saveBook(book)
         val bookId = repository.book(book.bookUrl)!!.bookId
+        repository.replaceChapters(
+            bookId,
+            (1..2).map { ChapterSeed(it, "https://site/ch/$it", "Chapter $it") },
+            at = 1L,
+        )
+        repository.replaceChapters(
+            bookId,
+            (1..3).map { ChapterSeed(it, "https://site/ch/$it", "Chapter $it") },
+            at = 2L,
+        )
+        assertEquals(1, repository.book(bookId)?.newChapters)
 
-        repository.recordUpdateCheck(bookId, total = 100, newChapters = 3, hash = "h1", at = 1L)
-        assertEquals(3, repository.book(bookId)?.newChapters)
-
-        // A later no-change run must NOT erase the unseen badge.
-        repository.recordUpdateCheck(bookId, total = 100, newChapters = 0, hash = "h1", at = 2L)
-        assertEquals(3, repository.book(bookId)?.newChapters)
+        // A later no-change check must NOT erase the unseen badge.
+        repository.recordUpdateCheck(bookId, total = 3, hash = "h1", at = 3L)
+        assertEquals(1, repository.book(bookId)?.newChapters)
+        assertEquals(2L, repository.book(bookId)?.lastUpdateAt)
         assertEquals(listOf(bookId), repository.booksWithUpdates().map { it.bookId })
-
-        // A further delta accumulates on top of the unseen count.
-        repository.recordUpdateCheck(bookId, total = 105, newChapters = 5, hash = "h2", at = 3L)
-        assertEquals(8, repository.book(bookId)?.newChapters)
 
         repository.markUpdatesSeen(bookId, at = 4L)
         assertEquals(0, repository.book(bookId)?.newChapters)
+    }
+
+    @Test
+    fun `first fill of an empty book writes no badge and no last update`() = runTest {
+        val book = book("https://site/book/import", inLibrary = true, lastReadAt = null)
+        repository.saveBook(book)
+        val bookId = repository.book(book.bookUrl)!!.bookId
+
+        repository.replaceChapters(
+            bookId,
+            (1..5).map { ChapterSeed(it, "https://site/ch/$it", "Chapter $it") },
+            at = 10L,
+        )
+
+        val row = repository.book(bookId)!!
+        assertEquals(5, row.totalChapters)
+        assertEquals(0, row.newChapters)
+        assertNull(row.lastUpdateAt)
+    }
+
+    @Test
+    fun `reconcile delta sets the badge and last update once`() = runTest {
+        val book = book("https://site/book/reconcile-delta", inLibrary = true, lastReadAt = null)
+        repository.saveBook(book)
+        val bookId = repository.book(book.bookUrl)!!.bookId
+
+        // First fill: the whole catalogue is new to us, not to the user.
+        repository.replaceChapters(
+            bookId,
+            (1..2).map { ChapterSeed(it, "https://site/ch/$it", "Chapter $it") },
+            at = 10L,
+        )
+        assertEquals(0, repository.book(bookId)?.newChapters)
+        assertNull(repository.book(bookId)?.lastUpdateAt)
+
+        // Same list: total is rewritten, the badge and its timestamp are not.
+        repository.replaceChapters(
+            bookId,
+            (1..2).map { ChapterSeed(it, "https://site/ch/$it", "Chapter $it") },
+            at = 20L,
+        )
+        assertEquals(0, repository.book(bookId)?.newChapters)
+        assertNull(repository.book(bookId)?.lastUpdateAt)
+        assertEquals(2, repository.book(bookId)?.totalChapters)
+
+        // Two more chapters: the delta and lastUpdateAt advance once.
+        repository.replaceChapters(
+            bookId,
+            (1..4).map { ChapterSeed(it, "https://site/ch/$it", "Chapter $it") },
+            at = 30L,
+        )
+        assertEquals(2, repository.book(bookId)?.newChapters)
+        assertEquals(30L, repository.book(bookId)?.lastUpdateAt)
+        assertEquals(4, repository.book(bookId)?.totalChapters)
+    }
+
+    @Test
+    fun `append writes only new chapters and stamps the check`() = runTest {
+        val book = book("https://site/book/append", inLibrary = true, lastReadAt = null)
+        repository.saveBook(book)
+        val bookId = repository.book(book.bookUrl)!!.bookId
+        repository.replaceChapters(
+            bookId,
+            listOf(
+                ChapterSeed(1, "https://site/ch/1", "One"),
+                ChapterSeed(2, "https://site/ch/2", "Two"),
+            ),
+            at = 1L,
+        )
+        repository.markChapterRead(bookId, 1, true, at = 2L)
+        // Isolate the append badge from the initial reconcile delta.
+        repository.markUpdatesSeen(bookId, at = 2L)
+
+        val delta = repository.appendChaptersAndStamp(
+            bookId = bookId,
+            seeds = listOf(
+                // Existing active rows are untouched, even with a new title/idx.
+                ChapterSeed(1, "https://site/ch/1", "One renamed"),
+                ChapterSeed(2, "https://site/ch/2", "Two"),
+                ChapterSeed(3, "https://site/ch/3", "Three"),
+            ),
+            page = 4,
+            at = 50L,
+        )
+
+        assertEquals(1, delta)
+        val rows = repository.chapters(bookId)
+        assertEquals(listOf(1, 2, 3), rows.map { it.idx })
+        assertEquals("One", rows.first().title)
+        assertTrue(rows.first().read)
+        val bookRow = repository.book(bookId)!!
+        assertEquals(3, bookRow.totalChapters)
+        assertEquals(1, bookRow.newChapters)
+        assertEquals(50L, bookRow.lastUpdateAt)
+        assertEquals(50L, bookRow.lastUpdateCheckAt)
+        assertEquals(4, bookRow.chaptersLastPage)
+    }
+
+    @Test
+    fun `append revives a removed url and counts it as a delta`() = runTest {
+        val book = book("https://site/book/append-revive", inLibrary = true, lastReadAt = null)
+        repository.saveBook(book)
+        val bookId = repository.book(book.bookUrl)!!.bookId
+        repository.replaceChapters(
+            bookId,
+            listOf(ChapterSeed(1, "https://site/ch/1", "One")),
+            at = 1L,
+        )
+        repository.markUpdatesSeen(bookId, at = 1L)
+        repository.replaceChapters(bookId, emptyList(), at = 2L)
+        assertEquals(0, repository.chapterCount(bookId))
+        val removed = repository.book(bookId)!!
+        assertEquals(0, removed.newChapters)
+
+        val delta = repository.appendChaptersAndStamp(
+            bookId = bookId,
+            seeds = listOf(ChapterSeed(2, "https://site/ch/1", "One revived")),
+            page = null,
+            at = 60L,
+        )
+
+        assertEquals(1, delta)
+        val revived = repository.chapters(bookId).single()
+        assertEquals(2, revived.idx)
+        assertEquals("One revived", revived.title)
+        assertEquals(1, repository.chapterCount(bookId))
+        val bookRow = repository.book(bookId)!!
+        assertEquals(1, bookRow.totalChapters)
+        assertEquals(1, bookRow.newChapters)
+        assertEquals(60L, bookRow.lastUpdateAt)
+        assertNull(bookRow.chaptersLastPage)
+    }
+
+    @Test
+    fun `chapter count excludes removed rows and last page can be cleared`() = runTest {
+        val book = book("https://site/book/count", inLibrary = true, lastReadAt = null)
+        repository.saveBook(book)
+        val bookId = repository.book(book.bookUrl)!!.bookId
+        repository.replaceChapters(
+            bookId,
+            (1..3).map { ChapterSeed(it, "https://site/ch/$it", "Chapter $it") },
+            at = 1L,
+        )
+        repository.replaceChapters(
+            bookId,
+            listOf(ChapterSeed(1, "https://site/ch/1", "One")),
+            at = 2L,
+        )
+        assertEquals(1, repository.chapterCount(bookId))
+        assertEquals(1, repository.chapters(bookId).size)
+        // Soft-removed rows stay in the table; only the count ignores them.
+        assertEquals(3, db.libraryDao().allChapters(bookId).size)
+
+        repository.updateChaptersLastPage(bookId, page = 7, at = 3L)
+        assertEquals(7, repository.book(bookId)?.chaptersLastPage)
+        repository.updateChaptersLastPage(bookId, page = null, at = 4L)
+        assertNull(repository.book(bookId)?.chaptersLastPage)
     }
 
     @Test

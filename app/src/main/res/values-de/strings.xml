@@ -150,6 +150,7 @@
     <string name="book_chapters_loading">Kapitel werden geladen…</string>
     <string name="book_chapters_refreshing">Kapitel werden aktualisiert…</string>
     <string name="book_chapters_refresh_cd">Kapitel aktualisieren</string>
+    <string name="book_chapters_full_reparse">Vollständige Kapitelliste wird neu geladen</string>
     <string name="book_chapters_refresh_failed">Kapitel konnten nicht aktualisiert werden</string>
     <string name="book_chapters_refresh_failed_desc">Die Quelle hat keine Kapitelliste zurückgegeben. Versuche es erneut, um sie noch einmal abzufragen.</string>
     <string name="book_no_chapters">Keine Kapitel</string>
@@ -947,6 +948,8 @@
     <string name="st_updates_notif_new_failed_fmt">%1$d neue Kapitel in %2$d Büchern; %3$d Bücher fehlgeschlagen.</string>
     <string name="st_updates_notif_failed_title">Bibliotheks-Update fehlgeschlagen</string>
     <string name="st_updates_notif_failed_fmt">%1$d Bücher konnten nicht geprüft werden.</string>
+    <string name="st_updates_notif_skipped_fmt">und %1$d übersprungen (Quelle kühlt ab)</string>
+    <string name="st_updates_pending_fmt">Mit Updates: %1$d</string>
     <string name="st_updates_notif_failed_generic">Der Update-Lauf ist fehlgeschlagen.</string>
     <string name="st_updates_notif_book_line_fmt">%1$s — +%2$d</string>
     <string name="st_updates_notif_more_fmt">und %1$d weitere</string>

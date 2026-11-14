@@ -93,7 +93,7 @@ object AppUpdateScheduler {
             7402,
             Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra(MainActivity.EXTRA_OPEN_UPDATES, true)
+                putExtra(MainActivity.EXTRA_OPEN_APP_UPDATE, true)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -135,12 +135,58 @@ object AppUpdateScheduler {
     }
 }
 
-/** GitHub release notes are markdown; the shade shows their plain text. */
+/**
+ * GitHub release notes are markdown/HTML; the shade shows their plain text.
+ * Templates wrap the changelog in divs, images and comments and repeat it in
+ * a RU and an EN spoiler; the notification shows the English spoiler's
+ * changelog without artifacts, falling back to the whole body when that
+ * spoiler is missing. Markup is stripped first, then the existing prefix
+ * cleaning runs, and entities are decoded last so an escaped `&lt;` is not
+ * mistaken for a tag.
+ */
 internal fun appUpdateReleaseNotes(body: String?, maxChars: Int = 800): String =
     body.orEmpty()
+        .englishSpoiler()
+        .replace(Regex("<!--.*?-->", RegexOption.DOT_MATCHES_ALL), "")
+        .replace(Regex("!\\[[^\\]]*\\]\\([^)]*\\)"), "")
+        .replace(Regex("</?[a-zA-Z][^>]*>"), "")
         .lineSequence()
         .map { it.trim().replace(Regex("^[#>*\\-\\s]+"), "") }
         .filter { it.isNotEmpty() }
         .joinToString("\n")
+        .decodeEntities()
         .take(maxChars)
         .trim()
+
+// Inner text of the English spoiler, or the whole body when that spoiler is
+// missing; either way the summary label is dropped and the text is cut at the
+// artifacts section so the download list and compare link stay out.
+private fun String.englishSpoiler(): String {
+    val block = Regex("<details[^>]*>(.*?)</details>", RegexOption.DOT_MATCHES_ALL)
+        .findAll(this)
+        .mapNotNull { it.groupValues.getOrNull(1) }
+        .firstOrNull { inner ->
+            Regex("<summary[^>]*>(.*?)</summary>", RegexOption.DOT_MATCHES_ALL)
+                .find(inner)?.groupValues?.getOrNull(1)
+                ?.contains("english", ignoreCase = true) == true
+        }
+        ?: this
+    // The summary label itself ("🇬🇧 English version") stays out of the shade.
+    val body = block.replace(Regex("<summary[^>]*>.*?</summary>", RegexOption.DOT_MATCHES_ALL), "")
+    val cut = Regex("^##[ \\t]*(Artifacts|Артефакты)", RegexOption.MULTILINE).find(body)
+        ?: return body
+    return body.substring(0, cut.range.first)
+}
+
+private fun String.decodeEntities(): String {
+    val named = replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&nbsp;", " ")
+    return named.replace(Regex("&#(\\d+);")) { match ->
+        val code = match.groupValues[1].toIntOrNull()
+        if (code != null && code in 1..0x10FFFF) String(Character.toChars(code)) else match.value
+    }
+}

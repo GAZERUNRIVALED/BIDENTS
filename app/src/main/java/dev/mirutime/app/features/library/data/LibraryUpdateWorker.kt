@@ -37,16 +37,17 @@ class LibraryUpdateWorker(
                 MiruLog.i(
                     "updates",
                     "library run checked=${summary.checked} updated=${summary.updated} " +
-                        "failed=${summary.failed}",
+                        "failed=${summary.failed} skipped=${summary.skipped} " +
+                        "new=${summary.newChapters}",
                 )
-                val updated = app.libraryRepository.booksWithUpdates()
                 LibraryUpdateNotifications.notifyResult(
                     context = app,
-                    newChapters = updated.sumOf { it.newChapters },
+                    newChapters = summary.newChapters,
                     checked = summary.checked,
                     updatedBooks = summary.updated,
                     failedBooks = summary.failed,
-                    lines = updated.map { it.title to it.newChapters },
+                    lines = summary.lines,
+                    skipped = summary.skipped,
                 )
                 Result.success()
             } catch (e: CancellationException) {

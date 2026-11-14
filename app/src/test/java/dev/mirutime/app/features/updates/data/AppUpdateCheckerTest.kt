@@ -125,6 +125,111 @@ class AppUpdateCheckerTest {
     }
 
     @Test
+    fun `template body keeps only plain text`() {
+        val body = """
+            <div align="center">
+            <img src="https://example.test/banner.png" width="200">
+            <!-- Draft -->
+            ## What's new
+            - Fixed &amp; improved playback
+            ![shot](https://example.test/shot.png)
+            <details><summary><b>Changelog</b></summary>text</details>
+            </div>
+        """.trimIndent()
+
+        assertEquals(
+            "What's new\nFixed & improved playback\ntext",
+            appUpdateReleaseNotes(body),
+        )
+        // Entities decode before the cap, so the 800th character is not inside one.
+        assertEquals(800, appUpdateReleaseNotes("&amp;".repeat(1000)).length)
+    }
+
+    @Test
+    fun `template body notifies only the english changelog without artifacts`() {
+        val body = """
+            <div align="center">
+            <img src="https://example.test/icon.png" width="88" height="88" alt="MiruTime"/>
+
+            # MiruTime v0.2.0
+
+            Reader for novels, manga and video
+            </div>
+
+            <details>
+            <summary><b>🇷🇺 Русская версия</b></summary>
+
+            > 🤖 Список изменений собран автоматически.
+
+            Изменения с `v1.2.3`:
+
+            ### ✨ Новое
+
+            - feat(reader): русская строка
+
+            ## Артефакты
+
+            - `MiruTime-v0.2.0-arm64-v8a.apk` — для современных устройств.
+
+            [Полный список изменений](https://example.test/compare/v1.2.3...v0.2.0).
+            </details>
+
+            <details open>
+            <summary><b>🇬🇧 English version</b></summary>
+
+            > 🤖 The changelog is generated automatically from commit messages.
+
+            > ⚠️ Back up the library before upgrading; Room migrations are one-way.
+
+            Changes since `v1.2.3`:
+
+            ### ✨ New
+
+            - feat(reader): english change line
+
+            ## Artifacts
+
+            - `MiruTime-v0.2.0-arm64-v8a.apk` — for modern 64-bit devices.
+            - `MiruTime-v0.2.0-universal.apk` — for emulators and 32-bit devices.
+
+            [Full changelog](https://example.test/compare/v1.2.3...v0.2.0).
+            </details>
+
+            <!-- Draft: add release highlights before publishing. -->
+        """.trimIndent()
+
+        val notes = appUpdateReleaseNotes(body)
+
+        assertTrue(notes.contains("feat(reader): english change line"))
+        assertFalse(notes.contains("English version"))
+        assertFalse(notes.contains("Русская версия"))
+        assertFalse(notes.contains("русская строка"))
+        assertFalse(notes.contains("Артефакты"))
+        assertFalse(notes.contains("Artifacts"))
+        assertFalse(notes.contains("arm64-v8a"))
+        assertFalse(notes.contains("compare/"))
+        assertTrue(notes.length <= 800)
+    }
+
+    @Test
+    fun `body without an english spoiler falls back to the whole text`() {
+        assertEquals(
+            "What's new\nFixed playback",
+            appUpdateReleaseNotes("## What's new\n\n- Fixed playback"),
+        )
+    }
+
+    @Test
+    fun `body without an english spoiler still drops the artifacts section`() {
+        assertEquals(
+            "What's new\nFixed playback",
+            appUpdateReleaseNotes(
+                "## What's new\n\n- Fixed playback\n\n## Artifacts\n\n- app.apk",
+            ),
+        )
+    }
+
+    @Test
     fun `missing or broken payload is not a release`() {
         assertNull(AppUpdateParser.parse("{}"))
         assertNull(AppUpdateParser.parse("not json"))

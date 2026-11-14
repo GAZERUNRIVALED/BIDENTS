@@ -5,6 +5,7 @@ import dev.mirutime.core.api.CatalogItem
 import dev.mirutime.core.api.CatalogPage
 import dev.mirutime.core.api.Chapter
 import dev.mirutime.core.api.ChapterContent
+import dev.mirutime.core.api.ChapterPage
 import dev.mirutime.core.api.Outcome
 import dev.mirutime.core.api.PluginDescriptor
 import dev.mirutime.core.api.PluginError
@@ -121,6 +122,10 @@ class LuaPluginSource(
     // live session off-mutex (a `by lazy` first read could race a locked()
     // call mutating globals on Dispatchers.IO).
     override val referer: String = readReferer()
+
+    // Same construction-time read as referer: the chunk has already run when
+    // the factory builds the adapter.
+    override val supportsPages: Boolean = hasFunction("parsePage")
 
     private fun readReferer(): String = try {
         session.globals.get("referer")
@@ -380,6 +385,36 @@ class LuaPluginSource(
         result
     }
 
+    // Exactly ONE parsePage call: incremental updates fetch a page, they must
+    // never drain the list (chapters() does that for the full refresh).
+    override suspend fun chapterPage(url: String, page: Int): Outcome<ChapterPage> = locked {
+        val call = session.call("parsePage", listOf(LuaArg.ArgStr(url), LuaArg.ArgNum(page.toDouble())))
+        val error = call.error
+        val result: Outcome<ChapterPage> = when {
+            // Same messages as the drain in chaptersViaParsePage: page 1 keeps
+            // the script's own error, page > 1 reports the failed page.
+            error != null && page == 1 -> Outcome.Err(error)
+            error != null -> scriptErr("parsePage failed on page $page")
+            else -> {
+                val data = call.data
+                val parsed = if (data == null || data is LuaData.LuaNil) null else parsePageResult(data)
+                when {
+                    parsed != null -> Outcome.Ok(parsed)
+                    page == 1 -> scriptErr("parsePage returned non-table")
+                    else -> scriptErr("parsePage failed on page $page")
+                }
+            }
+        }
+        when (result) {
+            is Outcome.Ok -> log(
+                "chapterPage page=$page count=${result.value.chapters.size} " +
+                    "total=${result.value.totalPages}",
+            )
+            is Outcome.Err -> log("chapterPage ERR page=$page $result")
+        }
+        result
+    }
+
     private fun chaptersViaList(url: String): Outcome<List<Chapter>> =
         when (val r = callOrErr("getChapterList", listOf(LuaArg.ArgStr(url)))) {
             is Outcome.Err -> r
@@ -411,14 +446,12 @@ class LuaPluginSource(
         return Outcome.Ok(chapters)
     }
 
-    private data class PagedChapters(val chapters: List<Chapter>, val totalPages: Int)
-
-    private fun parsePageResult(data: LuaData): PagedChapters? {
+    private fun parsePageResult(data: LuaData): ChapterPage? {
         val map = data as? LuaData.LuaMap ?: return null
         val items = (map.entries["chapters"] as? LuaData.LuaList)?.items.orEmpty()
         // NoveLA optint(1): absent/non-number totalPages defaults to a single page.
         val totalPages = (map.entries["totalPages"] as? LuaData.LuaNum)?.value?.toInt() ?: 1
-        return PagedChapters(items.mapNotNull { toChapter(it) }, totalPages)
+        return ChapterPage(items.mapNotNull { toChapter(it) }, totalPages)
     }
 
     private fun toChapter(item: LuaData): Chapter? {

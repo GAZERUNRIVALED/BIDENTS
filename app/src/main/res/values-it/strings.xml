@@ -150,6 +150,7 @@
     <string name="book_chapters_loading">Caricamento capitoli…</string>
     <string name="book_chapters_refreshing">Aggiornamento capitoli…</string>
     <string name="book_chapters_refresh_cd">Aggiorna capitoli</string>
+    <string name="book_chapters_full_reparse">Ricaricamento dell\'elenco completo dei capitoli</string>
     <string name="book_chapters_refresh_failed">Impossibile aggiornare i capitoli</string>
     <string name="book_chapters_refresh_failed_desc">L\'origine non ha restituito l\'elenco dei capitoli. Riprova per richiederlo di nuovo.</string>
     <string name="book_no_chapters">Nessun capitolo</string>
@@ -958,6 +959,8 @@
     <string name="st_updates_notif_new_failed_fmt">%1$d nuovi capitoli in %2$d libri; %3$d libri non riusciti.</string>
     <string name="st_updates_notif_failed_title">Aggiornamento libreria non riuscito</string>
     <string name="st_updates_notif_failed_fmt">Impossibile controllare %1$d libri.</string>
+    <string name="st_updates_notif_skipped_fmt">e %1$d saltati (fonte in raffreddamento)</string>
+    <string name="st_updates_pending_fmt">Con aggiornamenti: %1$d</string>
     <string name="st_updates_notif_failed_generic">L\'aggiornamento non è riuscito.</string>
     <string name="st_updates_notif_book_line_fmt">%1$s — +%2$d</string>
     <string name="st_updates_notif_more_fmt">e altri %1$d</string>

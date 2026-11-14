@@ -150,6 +150,7 @@
     <string name="book_chapters_loading">Cargando capítulos…</string>
     <string name="book_chapters_refreshing">Actualizando capítulos…</string>
     <string name="book_chapters_refresh_cd">Actualizar capítulos</string>
+    <string name="book_chapters_full_reparse">Recargando la lista completa de capítulos</string>
     <string name="book_chapters_refresh_failed">No se pudieron actualizar los capítulos</string>
     <string name="book_chapters_refresh_failed_desc">La fuente no devolvió la lista de capítulos. Reintenta para volver a pedirla.</string>
     <string name="book_no_chapters">Sin capítulos</string>
@@ -958,6 +959,8 @@
     <string name="st_updates_notif_new_failed_fmt">%1$d capítulos nuevos en %2$d libros; %3$d libros con error.</string>
     <string name="st_updates_notif_failed_title">Falló la actualización de la biblioteca</string>
     <string name="st_updates_notif_failed_fmt">No se pudieron comprobar %1$d libros.</string>
+    <string name="st_updates_notif_skipped_fmt">y %1$d omitidos (fuente enfriándose)</string>
+    <string name="st_updates_pending_fmt">Con actualizaciones: %1$d</string>
     <string name="st_updates_notif_failed_generic">La ejecución de actualización falló.</string>
     <string name="st_updates_notif_book_line_fmt">%1$s — +%2$d</string>
     <string name="st_updates_notif_more_fmt">y %1$d más</string>

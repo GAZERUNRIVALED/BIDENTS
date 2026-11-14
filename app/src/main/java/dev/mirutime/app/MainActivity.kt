@@ -70,6 +70,8 @@ class MainActivity : ComponentActivity() {
     private val pendingOpenTitle = mutableStateOf("")
     // Library-update notification: route to the Updates screen once per intent.
     private val pendingOpenUpdates = mutableStateOf(false)
+    // App-update notification: route to Settings -> Updates once per intent.
+    private val pendingOpenAppUpdate = mutableStateOf(false)
     private var navController: androidx.navigation.NavHostController? = null
 
     // The app language is applied before the activity's resources are built,
@@ -94,6 +96,9 @@ class MainActivity : ComponentActivity() {
     private fun openFromIntent(intent: android.content.Intent?) {
         if (intent?.getBooleanExtra(EXTRA_OPEN_UPDATES, false) == true) {
             pendingOpenUpdates.value = true
+        }
+        if (intent?.getBooleanExtra(EXTRA_OPEN_APP_UPDATE, false) == true) {
+            pendingOpenAppUpdate.value = true
         }
         val url = intent?.getStringExtra(EXTRA_OPEN_URL)?.takeIf { it.isNotBlank() } ?: return
         pendingOpenTitle.value = intent.getStringExtra(EXTRA_OPEN_TITLE).orEmpty()
@@ -228,6 +233,8 @@ class MainActivity : ComponentActivity() {
                         onOpenWebViewHandled = { pendingOpenUrl.value = null },
                         openUpdates = pendingOpenUpdates.value,
                         onOpenUpdatesHandled = { pendingOpenUpdates.value = false },
+                        openAppUpdate = pendingOpenAppUpdate.value,
+                        onOpenAppUpdateHandled = { pendingOpenAppUpdate.value = false },
                         customBg = customBg,
                         bgLibrary = bgLibrary,
                         onCustomBg = { source ->
@@ -347,5 +354,6 @@ private fun DatabaseUnavailableScreen(
         const val EXTRA_OPEN_URL = "dev.mirutime.app.OPEN_URL"
         const val EXTRA_OPEN_TITLE = "dev.mirutime.app.OPEN_TITLE"
         const val EXTRA_OPEN_UPDATES = "dev.mirutime.app.OPEN_UPDATES"
+        const val EXTRA_OPEN_APP_UPDATE = "dev.mirutime.app.OPEN_APP_UPDATE"
     }
 }

@@ -104,16 +104,14 @@ data class BookDetails(
     val originCatalogUrl: String? = null,
 ) {
     val unreadCount: Int get() = (totalChapters - readCount).coerceAtLeast(0)
-    // Match ReaderOpenResolver: reopen the saved/last-read chapter while it is
-    // still unread (mid-chapter stop), otherwise go to the first unread
-    // chapter. A finished book restarts from the last chapter. readCount + 1
-    // is wrong for non-contiguous bulk-read flags.
+    // Match ReaderOpenResolver: reopen the saved/last-read chapter even when it
+    // is already marked read, otherwise go to the first unread chapter. A
+    // finished book restarts from the last chapter. readCount + 1 is wrong for
+    // non-contiguous bulk-read flags.
     val continueChapter: BookChapter?
-        get() {
-            val lastRead = chapters.lastOrNull { it.isLastRead }
-            if (lastRead != null && !lastRead.isRead) return lastRead
-            return chapters.firstOrNull { !it.isRead } ?: chapters.lastOrNull()
-        }
+        get() = chapters.lastOrNull { it.isLastRead }
+            ?: chapters.firstOrNull { !it.isRead }
+            ?: chapters.lastOrNull()
 
     val continueIndex: Int get() = continueChapter?.index ?: 1
     // Chapter the last-read button lands on. Prefer the real progress marker;

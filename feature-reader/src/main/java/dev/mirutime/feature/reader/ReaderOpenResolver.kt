@@ -14,11 +14,9 @@ object ReaderOpenResolver {
         val savedChapter = saved?.anchor?.chapterUrl?.let { url ->
             book.chapters.firstOrNull { it.chapterUrl == url }
         }
-        // Reopen a saved position only while that chapter is still unread.
-        // Once it is marked read, Continue means "next unread chapter"; the
-        // old behavior reopened the finished chapter while the label promised
-        // readCount + 1.
-        if (savedChapter != null && !savedChapter.isRead) {
+        // Continue always reopens the saved chapter, even when it is already
+        // marked read: the label and the tap both use the saved position.
+        if (savedChapter != null) {
             return ReaderOpenTarget.Chapter(savedChapter.index, restoreAnchor = true)
         }
         val firstUnread = book.chapters.firstOrNull { !it.isRead }

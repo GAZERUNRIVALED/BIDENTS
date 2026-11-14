@@ -91,7 +91,7 @@ class LibraryMigrationTest {
         val migrated = buildLibraryDatabase(libraryDatabaseBuilder(file))
         try {
             val repository = LibraryRepository(migrated.libraryDao())
-            assertEquals(12, LibrarySchemaVersion)
+            assertEquals(13, LibrarySchemaVersion)
             assertEquals("https://migrate.test/book", repository.book(bookId)?.url)
             assertEquals(chapterId, repository.chapters(bookId).single().chapterId)
 
@@ -223,7 +223,7 @@ class LibraryMigrationTest {
         }
 
         BundledSQLiteDriver().open(file.absolutePath).use { connection ->
-            assertEquals(12, connection.long("PRAGMA user_version").toInt())
+            assertEquals(13, connection.long("PRAGMA user_version").toInt())
             assertEquals(5, connection.long("SELECT COUNT(*) FROM books").toInt())
             assertEquals(5003, connection.long("SELECT COUNT(*) FROM chapters").toInt())
             listOf(
@@ -415,7 +415,7 @@ class LibraryMigrationTest {
         }
 
         BundledSQLiteDriver().open(file.absolutePath).use { connection ->
-            assertEquals(12, connection.long("PRAGMA user_version").toInt())
+            assertEquals(13, connection.long("PRAGMA user_version").toInt())
             assertEquals(1, connection.long("SELECT COUNT(*) FROM video_progress").toInt())
             assertTrue(connection.indexExists("index_video_progress_bookId", "video_progress"))
         }
@@ -455,7 +455,7 @@ class LibraryMigrationTest {
         }
 
         BundledSQLiteDriver().open(file.absolutePath).use { connection ->
-            assertEquals(12, connection.long("PRAGMA user_version").toInt())
+            assertEquals(13, connection.long("PRAGMA user_version").toInt())
             assertEquals(0, connection.long("SELECT COUNT(*) FROM video_progress").toInt())
         }
     }
@@ -531,7 +531,7 @@ class LibraryMigrationTest {
         }
 
         BundledSQLiteDriver().open(file.absolutePath).use { connection ->
-            assertEquals(12, connection.long("PRAGMA user_version").toInt())
+            assertEquals(13, connection.long("PRAGMA user_version").toInt())
             assertTrue(connection.columns("local_book_files").contains("origin_catalog_url"))
             assertTrue(connection.columns("opds_entries").contains("feed_url"))
             assertTrue(connection.indexExists("index_opds_entries_catalogUrl_updatedAt", "opds_entries"))
@@ -572,10 +572,77 @@ class LibraryMigrationTest {
         }
 
         BundledSQLiteDriver().open(file.absolutePath).use { connection ->
-            assertEquals(12, connection.long("PRAGMA user_version").toInt())
+            assertEquals(13, connection.long("PRAGMA user_version").toInt())
             assertEquals(0, connection.long("SELECT COUNT(*) FROM opds_entries").toInt())
         }
     }
+
+    @Test
+    fun `migration 12 to 13 adds a null chapter-list page`() = runTest {
+        val file = File(tempDir(), "migrate-v12.db")
+        var bookId: Long
+
+        val created = buildLibraryDatabase(libraryDatabaseBuilder(file))
+        try {
+            val repository = LibraryRepository(created.libraryDao())
+            bookId = repository.saveBook(book("https://v12.test/book"))
+            repository.updateChaptersLastPage(bookId, page = 5, at = 10L)
+        } finally {
+            created.close()
+        }
+
+        downgradeToV12(file)
+
+        val migrated = buildLibraryDatabase(libraryDatabaseBuilder(file))
+        try {
+            val repository = LibraryRepository(migrated.libraryDao())
+            // A legacy book has no known page: null, never an invented 0.
+            assertNull(repository.book(bookId)?.chaptersLastPage)
+            repository.updateChaptersLastPage(bookId, page = 6, at = 20L)
+            assertEquals(6, repository.book(bookId)?.chaptersLastPage)
+        } finally {
+            migrated.close()
+        }
+
+        BundledSQLiteDriver().open(file.absolutePath).use { connection ->
+            assertEquals(13, connection.long("PRAGMA user_version").toInt())
+            assertTrue(connection.columns("books").contains("chaptersLastPage"))
+        }
+    }
+
+    @Test
+    fun `backup migrator upgrades a real v12 snapshot and adds the page column`() = runTest {
+        val file = File(tempDir(), "backup-v12.db")
+        var bookId: Long
+
+        val created = buildLibraryDatabase(libraryDatabaseBuilder(file))
+        try {
+            val repository = LibraryRepository(created.libraryDao())
+            bookId = repository.saveBook(book("https://backup-v12.test/book"))
+        } finally {
+            created.close()
+        }
+
+        downgradeToV12(file)
+
+        migrateBackupDatabase(file.absolutePath, fromVersion = 12)
+
+        val migrated = buildLibraryDatabase(libraryDatabaseBuilder(file))
+        try {
+            val repository = LibraryRepository(migrated.libraryDao())
+            assertEquals("https://backup-v12.test/book", repository.book(bookId)?.url)
+            assertNull(repository.book(bookId)?.chaptersLastPage)
+        } finally {
+            migrated.close()
+        }
+
+        BundledSQLiteDriver().open(file.absolutePath).use { connection ->
+            assertEquals(13, connection.long("PRAGMA user_version").toInt())
+            assertTrue(connection.columns("books").contains("chaptersLastPage"))
+            assertEquals(1, connection.long("SELECT COUNT(*) FROM books").toInt())
+        }
+    }
+
 
     @Test
     fun `migration 9 to 10 backfills independent history and keeps book state`() = runTest {
@@ -634,7 +701,7 @@ class LibraryMigrationTest {
         }
 
         BundledSQLiteDriver().open(file.absolutePath).use { connection ->
-            assertEquals(12, connection.long("PRAGMA user_version").toInt())
+            assertEquals(13, connection.long("PRAGMA user_version").toInt())
             // The list row was deleted, but the backfill/index remain valid and
             // the book itself is intact.
             assertEquals(0, connection.long("SELECT COUNT(*) FROM history").toInt())
@@ -673,8 +740,21 @@ class LibraryMigrationTest {
         }
     }
 
+    private fun downgradeToV12(file: File) {
+        BundledSQLiteDriver().open(file.absolutePath).use { connection ->
+            connection.exec("ALTER TABLE books DROP COLUMN chaptersLastPage")
+            connection.exec("PRAGMA user_version = 12")
+            // A genuine v12 file carried the v12 hash published in 12.json.
+            connection.exec(
+                "UPDATE room_master_table SET identity_hash = " +
+                    "'0eb1c3b620a09fa57dfa6c2adfb95bb0' WHERE id = 42",
+            )
+        }
+    }
+
     private fun downgradeToV11(file: File) {
         BundledSQLiteDriver().open(file.absolutePath).use { connection ->
+            connection.exec("ALTER TABLE books DROP COLUMN chaptersLastPage")
             connection.exec("DROP INDEX index_opds_entries_catalogUrl_updatedAt")
             connection.exec("DROP TABLE opds_entries")
             connection.exec("DROP INDEX index_local_book_files_origin_catalog_url_origin_entry_url")

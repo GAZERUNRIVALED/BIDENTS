@@ -278,7 +278,7 @@ class LibraryBulkChunkingTest {
                     if (upserts.size == 2) throw CancellationException("cancelled")
                 },
                 markRemovedChunk = { ids, _ -> removals += ids.size },
-                updateTotal = { totalUpdates++ },
+                updateTotal = { _, _ -> totalUpdates++ },
                 readChapters = { emptyList() },
             )
         }
@@ -293,7 +293,7 @@ class LibraryBulkChunkingTest {
             at = 3L,
             upsertChunk = { rows -> upserts += rows.size },
             markRemovedChunk = { ids, _ -> removals += ids.size },
-            updateTotal = { totalUpdates++ },
+            updateTotal = { _, _ -> totalUpdates++ },
             readChapters = { emptyList() },
         )
         assertTrue(result.isEmpty())

@@ -150,6 +150,7 @@
     <string name="book_chapters_loading">Memuat bab…</string>
     <string name="book_chapters_refreshing">Menyegarkan bab…</string>
     <string name="book_chapters_refresh_cd">Segarkan bab</string>
+    <string name="book_chapters_full_reparse">Memuat ulang seluruh daftar bab</string>
     <string name="book_chapters_refresh_failed">Tidak dapat menyegarkan bab</string>
     <string name="book_chapters_refresh_failed_desc">Sumber tidak mengembalikan daftar bab. Coba lagi untuk menanyakannya kembali.</string>
     <string name="book_no_chapters">Tidak ada bab</string>
@@ -936,6 +937,8 @@
     <string name="st_updates_notif_new_failed_fmt">%1$d bab baru di %2$d buku; %3$d buku gagal.</string>
     <string name="st_updates_notif_failed_title">Pembaruan perpustakaan gagal</string>
     <string name="st_updates_notif_failed_fmt">Tidak dapat memeriksa %1$d buku.</string>
+    <string name="st_updates_notif_skipped_fmt">dan %1$d dilewati (sumber sedang mendingin)</string>
+    <string name="st_updates_pending_fmt">Dengan pembaruan: %1$d</string>
     <string name="st_updates_notif_failed_generic">Proses pembaruan gagal.</string>
     <string name="st_updates_notif_book_line_fmt">%1$s — +%2$d</string>
     <string name="st_updates_notif_more_fmt">dan %1$d lagi</string>

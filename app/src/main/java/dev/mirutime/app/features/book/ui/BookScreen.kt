@@ -381,7 +381,11 @@ internal fun BookScreen(
         val readerBook = book?.toReaderBook() ?: return@LaunchedEffect
         val saved = runCatching { readerGraph.positions.load(bookUrl) }.getOrNull()
         hasSavedProgress = saved != null
-        savedContinue = ReaderOpenResolver.continueChapter(readerBook, saved)
+        savedContinue = if (readerBook.chapters.isEmpty()) {
+            null
+        } else {
+            ReaderOpenResolver.continueChapter(readerBook, saved)
+        }
         savedChapterIndex = saved?.anchor?.chapterUrl?.let { url ->
             readerBook.chapters.firstOrNull { it.chapterUrl == url }?.index
         }
@@ -848,9 +852,12 @@ internal fun BookScreen(
 
     // The only per-screen network refresh: opening a cached book never calls
     // the source. The scheduled worker keeps updating the DB in the background.
-    fun refreshChapters() {
+    fun refreshChapters(forceFull: Boolean = false) {
         if (chaptersRefreshing) return
         chaptersRefreshing = true
+        if (forceFull) {
+            bookToast(context, resources.getString(R.string.book_chapters_full_reparse))
+        }
         ioScope.launch {
             try {
                 // Metadata first so a stored-missing rating/description/cover can
@@ -881,7 +888,7 @@ internal fun BookScreen(
                     }
                 }
                 val result = try {
-                    withContext(Dispatchers.IO) { provider.refreshChaptersOutcome(bookUrl) }
+                    withContext(Dispatchers.IO) { provider.refreshChaptersOutcome(bookUrl, forceFull) }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -1750,11 +1757,11 @@ internal fun BookScreen(
                     toolCount = if (isVideoBook || mangaBook) 2 else 4,
                     toolsExpanded = toolsExpanded,
                     onContinue = {
-                        ioScope.launch {
-                            val readerBook = current.toReaderBook()
-                            val saved = readerGraph.positions.load(bookUrl)
-                            val target = ReaderOpenResolver.continueChapter(readerBook, saved)
-                            if (readerBook.isVideo) {
+                        // Same stored target as the label: one resolver result,
+                        // never a second lookup that can disagree with it.
+                        val target = savedContinue ?: current.continueChapter?.index
+                        if (target != null) {
+                            if (isVideoBook) {
                                 onOpenVideo(bookUrl, target)
                             } else {
                                 onOpenReader(bookUrl, target, true)
@@ -1840,7 +1847,7 @@ internal fun BookScreen(
                         reportText = report.reportText,
                         authUrl = report.authUrl,
                         authLabel = report.text.authHostPath,
-                        onRetry = ::refreshChapters,
+                        onRetry = { refreshChapters() },
                         onOpenAuth = { url -> onOpenWebView(url, "") },
                     )
                 }
@@ -1854,7 +1861,8 @@ internal fun BookScreen(
                         newestFirst = newestFirst,
                         refreshing = chaptersRefreshing,
                         notesCount = current.reviews.size,
-                        onRefresh = ::refreshChapters,
+                        onRefresh = { refreshChapters() },
+                        onForceRefresh = { refreshChapters(forceFull = true) },
                         onToggleOrder = {
                             newestFirst = !newestFirst
                             AppSettings.newestFirst = newestFirst
@@ -3743,6 +3751,7 @@ private fun ChaptersSection(
     refreshing: Boolean,
     notesCount: Int,
     onRefresh: () -> Unit,
+    onForceRefresh: () -> Unit,
     onToggleOrder: () -> Unit,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
     notesContent: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
@@ -3787,7 +3796,12 @@ private fun ChaptersSection(
                     modifier = Modifier
                         .size(MiruSize.Touch)
                         .clip(RoundedCornerShape(MiruRadius.Cover))
-                        .clickable(role = Role.Button, onClick = onRefresh),
+                        .combinedClickable(
+                            role = Role.Button,
+                            onClick = onRefresh,
+                            onLongClickLabel = stringResource(R.string.book_chapters_full_reparse),
+                            onLongClick = onForceRefresh,
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

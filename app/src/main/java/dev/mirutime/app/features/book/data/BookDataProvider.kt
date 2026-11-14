@@ -16,6 +16,15 @@ data class MembershipResult(
     val superseded: Boolean = false,
 )
 
+// Count plus the pagination bookkeeping the incremental refresh produced:
+// lastPage is the source's chapter-list page now fully stored, added is the
+// number of chapters the run appended.
+data class ChapterRefresh(
+    val count: Int?,
+    val lastPage: Int? = null,
+    val added: Int = 0,
+)
+
 // Book-shaped slice of the future data layer. The screen depends only on
 // this interface; the real one will resolve bookUrl
 // through mirutime-core and the DB tables.
@@ -57,8 +66,12 @@ interface BookDataProvider {
      * failure (and the stored rows stay untouched) so the page can explain it;
      * `Ok` carries the rows it should show.
      */
-    suspend fun refreshChaptersOutcome(bookUrl: String): Outcome<List<BookChapter>> =
-        Outcome.Ok(refreshChapters(bookUrl))
+    suspend fun refreshChaptersOutcome(
+        bookUrl: String,
+        // Long-press on the refresh control: ignore the stored page counter and
+        // reparse the whole list (NoveLA fixBook equivalent).
+        forceFull: Boolean = false,
+    ): Outcome<List<BookChapter>> = Outcome.Ok(refreshChapters(bookUrl))
 
     /**
      * Typed refresh for the library update service: an `Err` keeps the plugin
@@ -67,6 +80,19 @@ interface BookDataProvider {
      */
     suspend fun refreshChapterCountOutcome(bookUrl: String): Outcome<Int?> =
         Outcome.Ok(refreshChapters(bookUrl).size.takeIf { it > 0 })
+
+    /**
+     * Pagination-aware update check: [lastPage] is the stored chapter-list page
+     * from the previous run. The default ignores it and mirrors the one-arg
+     * contract.
+     */
+    suspend fun refreshChapterCountOutcome(
+        bookUrl: String,
+        lastPage: Int?,
+    ): Outcome<ChapterRefresh?> = when (val outcome = refreshChapterCountOutcome(bookUrl)) {
+        is Outcome.Ok -> Outcome.Ok(outcome.value?.let { ChapterRefresh(it) })
+        is Outcome.Err -> outcome
+    }
 
     /** Last typed plugin failure for this book page; null after a success. */
     fun lastPluginError(bookUrl: String): PluginError? = null

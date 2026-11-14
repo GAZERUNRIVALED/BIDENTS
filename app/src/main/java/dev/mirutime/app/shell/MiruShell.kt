@@ -189,6 +189,9 @@ fun MiruShell(
     // Library-update notification: open the Updates list.
     openUpdates: Boolean = false,
     onOpenUpdatesHandled: () -> Unit = {},
+    // App-update notification: open Settings -> Updates, not the dashboard list.
+    openAppUpdate: Boolean = false,
+    onOpenAppUpdateHandled: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val readerGraph = remember(context) {
@@ -320,6 +323,12 @@ fun MiruShell(
         MiruLog.event("nav", "open-updates")
         navController.navigate("updates")
         onOpenUpdatesHandled()
+    }
+    LaunchedEffect(openAppUpdate) {
+        if (!openAppUpdate) return@LaunchedEffect
+        MiruLog.event("nav", "open-app-update")
+        navController.navigate(SettingsRoutes.Updates)
+        onOpenAppUpdateHandled()
     }
     var themeSheetOpen by rememberSaveable { mutableStateOf(false) }
     var extrasSheetOpen by rememberSaveable { mutableStateOf(false) }

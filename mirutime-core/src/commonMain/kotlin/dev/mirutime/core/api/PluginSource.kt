@@ -32,6 +32,15 @@ interface PluginSource {
 
     suspend fun chapters(url: String): Outcome<List<Chapter>>
 
+    // True when the source exposes parsePage and chapterPage(url, 1..n) works;
+    // false means callers must use chapters() (which always drains).
+    val supportsPages: Boolean get() = false
+
+    // One page of the chapter list. Sources without pagination return Err —
+    // callers gate on supportsPages.
+    suspend fun chapterPage(url: String, page: Int): Outcome<ChapterPage> =
+        Outcome.Err(PluginError.ScriptError("chapterPage is not supported by this source"))
+
     /**
      * Optional NoveLA getChapterListHash: a cheap chapter-list probe used by
      * library updates. Null means the source has no hash; callers fetch the

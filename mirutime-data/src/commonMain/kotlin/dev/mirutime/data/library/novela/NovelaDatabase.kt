@@ -22,6 +22,8 @@ data class NovelaBookRow(
     val lastReadAt: Long,
     val chaptersListHash: String?,
     val lastReadChapter: String?,
+    /** Last known chapter-list page in NoveLA; null when unknown/older backups. */
+    val chaptersLastPage: Long?,
 )
 
 data class NovelaChapterRow(
@@ -77,6 +79,7 @@ class NovelaDatabase private constructor(
             lastReadAt = statement.getLong(14),
             chaptersListHash = statement.textOrNull(15),
             lastReadChapter = statement.textOrNull(16),
+            chaptersLastPage = statement.longOrNull(17),
         )
     }
 
@@ -165,6 +168,7 @@ private val BOOK_COLUMNS: List<ColumnSpec> = listOf(
     "lastReadEpochTimeMilli" to "0",
     "chaptersListHash" to "NULL",
     "lastReadChapter" to "NULL",
+    "chaptersLastPage" to "NULL",
 )
 
 private val CHAPTER_COLUMNS: List<ColumnSpec> = listOf(

@@ -150,6 +150,7 @@
     <string name="book_chapters_loading">Đang tải chương…</string>
     <string name="book_chapters_refreshing">Đang làm mới chương…</string>
     <string name="book_chapters_refresh_cd">Làm mới chương</string>
+    <string name="book_chapters_full_reparse">Đang tải lại toàn bộ danh sách chương</string>
     <string name="book_chapters_refresh_failed">Không làm mới được chương</string>
     <string name="book_chapters_refresh_failed_desc">Nguồn không trả về danh sách chương. Thử lại để hỏi lại.</string>
     <string name="book_no_chapters">Không có chương</string>
@@ -936,6 +937,8 @@
     <string name="st_updates_notif_new_failed_fmt">%1$d chương mới trong %2$d sách; %3$d sách thất bại.</string>
     <string name="st_updates_notif_failed_title">Cập nhật thư viện thất bại</string>
     <string name="st_updates_notif_failed_fmt">Không kiểm tra được %1$d sách.</string>
+    <string name="st_updates_notif_skipped_fmt">và bỏ qua: %1$d (nguồn đang tạm nghỉ)</string>
+    <string name="st_updates_pending_fmt">Có cập nhật: %1$d</string>
     <string name="st_updates_notif_failed_generic">Lần chạy cập nhật thất bại.</string>
     <string name="st_updates_notif_book_line_fmt">%1$s — +%2$d</string>
     <string name="st_updates_notif_more_fmt">và %1$d mục nữa</string>

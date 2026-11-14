@@ -45,6 +45,7 @@ class NovelaDatabaseTest {
             assertEquals(40L, book.lastReadAt)
             assertEquals("hash", book.chaptersListHash)
             assertEquals("https://n/a#2", book.lastReadChapter)
+            assertEquals(3L, book.chaptersLastPage)
 
             val minimal = books.last()
             assertEquals("", minimal.coverUrl)
@@ -57,6 +58,7 @@ class NovelaDatabaseTest {
             assertEquals(false, minimal.inLibrary)
             assertNull(minimal.chaptersListHash)
             assertNull(minimal.lastReadChapter)
+            assertNull(minimal.chaptersLastPage)
 
             val chapters = database.chapters("https://n/a")
             assertEquals(
@@ -176,6 +178,8 @@ class NovelaDatabaseTest {
             assertEquals("", book.contentType)
             assertEquals(false, book.completed)
             assertNull(book.lastReadChapter)
+            // The legacy fixture has the column but no value: still null.
+            assertNull(book.chaptersLastPage)
 
             val chapter = database.chapters("https://old/b").single()
             assertNull(chapter.uploadedAt)

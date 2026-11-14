@@ -63,6 +63,8 @@ data class BookEntity(
     // Denormalized for cheap list rendering; chapterId is the identity.
     val lastChapterIndex: Int?,
     val chapterListHash: String?,
+    // Last known chapter-list page; null = unknown/legacy.
+    val chaptersLastPage: Int? = null,
     val lastUpdateAt: Long?,
     val genresJson: String,
     // v4 metadata. Existing fields above stay as compatibility shims until

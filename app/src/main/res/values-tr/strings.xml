@@ -150,6 +150,7 @@
     <string name="book_chapters_loading">Bölümler yükleniyor…</string>
     <string name="book_chapters_refreshing">Bölümler yenileniyor…</string>
     <string name="book_chapters_refresh_cd">Bölümleri yenile</string>
+    <string name="book_chapters_full_reparse">Tam bölüm listesi yeniden yükleniyor</string>
     <string name="book_chapters_refresh_failed">Bölümler yenilenemedi</string>
     <string name="book_chapters_refresh_failed_desc">Kaynak bölüm listesini döndürmedi. Yeniden deneyerek tekrar sorun.</string>
     <string name="book_no_chapters">Bölüm yok</string>
@@ -947,6 +948,8 @@
     <string name="st_updates_notif_new_failed_fmt">%1$d yeni bölüm · %2$d kitap; %3$d kitap başarısız.</string>
     <string name="st_updates_notif_failed_title">Kitaplık güncellemesi başarısız</string>
     <string name="st_updates_notif_failed_fmt">%1$d kitap kontrol edilemedi.</string>
+    <string name="st_updates_notif_skipped_fmt">ve %1$d atlandı (kaynak soğumada)</string>
+    <string name="st_updates_pending_fmt">Güncellemesi olan: %1$d</string>
     <string name="st_updates_notif_failed_generic">Güncelleme çalışması başarısız oldu.</string>
     <string name="st_updates_notif_book_line_fmt">%1$s — +%2$d</string>
     <string name="st_updates_notif_more_fmt">ve %1$d tane daha</string>

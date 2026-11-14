@@ -55,6 +55,7 @@ class LibraryUpdateServiceErrorTest {
                 "shelves" -> listOf(ShelfEntity(id = "reading", label = "Reading", position = 0))
                 "bookByUrl" -> books.firstOrNull { it.url == (args?.get(0) as? String) }
                 "recordUpdateCheck" -> Unit
+                "stampLastUpdateCheck" -> Unit
                 else -> throw AssertionError("Unexpected DAO call: ${method.name}")
             }
         } as LibraryDao
@@ -62,8 +63,10 @@ class LibraryUpdateServiceErrorTest {
     private class ErrorProvider(private val error: PluginError) : LibraryBookRefreshPort {
         override suspend fun refreshChapterCount(bookUrl: String): Int? = 0
 
-        override suspend fun refreshChapterCountResult(bookUrl: String): RefreshResult =
-            RefreshResult(count = null, error = error)
+        override suspend fun refreshChapterCountResult(
+            bookUrl: String,
+            lastPage: Int?,
+        ): RefreshResult = RefreshResult(count = null, error = error)
     }
 
     @Test
@@ -86,6 +89,11 @@ class LibraryUpdateServiceErrorTest {
         val service = LibraryUpdateService(
             provider = object : LibraryBookRefreshPort {
                 override suspend fun refreshChapterCount(bookUrl: String): Int? = 2
+
+                override suspend fun refreshChapterCountResult(
+                    bookUrl: String,
+                    lastPage: Int?,
+                ): RefreshResult = RefreshResult(count = 2, added = 2)
             },
             library = LibraryRepository(libraryDao(listOf(book(1)))),
             now = { 1_000L },
@@ -93,7 +101,16 @@ class LibraryUpdateServiceErrorTest {
 
         val summary = service.checkAll()
 
-        assertEquals(UpdateCheckSummary(checked = 1, updated = 1, failed = 0), summary)
+        assertEquals(
+            UpdateCheckSummary(
+                checked = 1,
+                updated = 1,
+                failed = 0,
+                newChapters = 2,
+                lines = listOf("Book 1" to 2),
+            ),
+            summary,
+        )
         assertNull(summary.firstError)
     }
 }

@@ -491,7 +491,10 @@ class MiruApp : Application(), SingletonImageLoader.Factory {
     // Settings -> Data reads the same files the app actually writes. Video
     // downloads are media3's SimpleCache under video_downloads.
     val storageUsageService: StorageUsageService by lazy {
-        val db = getDatabasePath("mirutime.db")
+        // Paths built from dataDir, not getDatabasePath/filesDir: composition
+        // reads this on Main and both getters stat/ensure the directory.
+        val db = File(File(applicationInfo.dataDir, "databases"), "mirutime.db")
+        val filesDir = File(applicationInfo.dataDir, "files")
         StorageUsageService(
             repository = libraryRepository,
             databaseFiles = listOf(db, File("${db.path}-wal"), File("${db.path}-shm")),

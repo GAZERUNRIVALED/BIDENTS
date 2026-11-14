@@ -154,6 +154,7 @@
     <string name="book_chapters_loading">Loading chapters…</string>
     <string name="book_chapters_refreshing">Refreshing chapters…</string>
     <string name="book_chapters_refresh_cd">Refresh chapters</string>
+    <string name="book_chapters_full_reparse">Reloading the full chapter list</string>
     <string name="book_chapters_refresh_failed">Couldn\'t refresh chapters</string>
     <string name="book_chapters_refresh_failed_desc">The source did not return the chapter list. Retry to ask it again.</string>
     <string name="book_no_chapters">No chapters</string>
@@ -832,6 +833,7 @@
     <string name="updates_settings_desc">App and library update options</string>
     <string name="updates_empty_title">No new chapters</string>
     <string name="updates_empty_desc">Everything on your shelves is up to date.</string>
+    <string name="st_updates_pending_fmt">%1$d with updates</string>
     <string name="updates_error_title">Couldn\'t check for updates</string>
     <string name="updates_error_desc">Check your connection or the source, then try again.</string>
     <string name="st_updates_header_desc">App and library updates</string>
@@ -955,6 +957,7 @@
     <string name="st_updates_notif_book_line_fmt">%1$s — +%2$d</string>
     <string name="st_updates_notif_more_fmt">and %1$d more</string>
     <string name="st_updates_notif_summary_fmt">Checked %1$d · updated %2$d · errors %3$d</string>
+    <string name="st_updates_notif_skipped_fmt">and %1$d skipped (source cooling down)</string>
     <string name="st_updates_app_notif_channel">App updates</string>
     <string name="st_updates_app_notif_channel_desc">A new MiruTime release</string>
     <string name="st_updates_app_notif_title">Update available</string>

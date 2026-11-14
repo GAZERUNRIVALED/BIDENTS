@@ -47,6 +47,7 @@ object LibraryUpdateNotifications {
         updatedBooks: Int,
         failedBooks: Int,
         lines: List<Pair<String, Int>>,
+        skipped: Int = 0,
     ) {
         val localized = AppLanguage.wrap(context, AppSettings.appLanguage)
         if (newChapters > 0) {
@@ -70,6 +71,7 @@ object LibraryUpdateNotifications {
                 updatedBooks = updatedBooks,
                 failedBooks = failedBooks,
                 lines = lines,
+                skipped = skipped,
             )
         } else if (failedBooks > 0) {
             postFailure(
@@ -100,17 +102,22 @@ object LibraryUpdateNotifications {
         updatedBooks: Int,
         failedBooks: Int,
         lines: List<Pair<String, Int>>,
+        skipped: Int,
     ) {
         if (!canPost(context)) return
         ensureChannel(context)
         val style = Notification.InboxStyle().setBigContentTitle(title)
-        libraryUpdateLines(
+        libraryUpdateInboxLines(
             books = lines,
+            skipped = skipped,
             format = { bookTitle, count ->
                 localized.getString(R.string.st_updates_notif_book_line_fmt, bookTitle, count)
             },
             more = { remaining ->
                 localized.getString(R.string.st_updates_notif_more_fmt, remaining)
+            },
+            skippedFormat = { count ->
+                localized.getString(R.string.st_updates_notif_skipped_fmt, count)
             },
         ).forEach(style::addLine)
         post(
@@ -189,3 +196,14 @@ internal fun libraryUpdateLines(
     val remaining = valid.size - shown.size
     return if (remaining > 0) shown + more(remaining) else shown
 }
+
+/** Same lines, plus one "N skipped" line when a source was cooling down. */
+internal fun libraryUpdateInboxLines(
+    books: List<Pair<String, Int>>,
+    skipped: Int,
+    format: (String, Int) -> String,
+    more: (Int) -> String,
+    skippedFormat: (Int) -> String,
+): List<String> =
+    libraryUpdateLines(books, format = format, more = more) +
+        if (skipped > 0) listOf(skippedFormat(skipped)) else emptyList()

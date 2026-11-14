@@ -15,6 +15,15 @@ interface LibraryBookRefreshPort {
     suspend fun refreshChapterCountResult(bookUrl: String): RefreshResult =
         RefreshResult(count = refreshChapterCount(bookUrl))
 
+    /**
+     * Pagination-aware variant: [lastPage] is the chapter-list page stored by
+     * the previous incremental run (null = drain the whole list).
+     */
+    suspend fun refreshChapterCountResult(
+        bookUrl: String,
+        lastPage: Int?,
+    ): RefreshResult = refreshChapterCountResult(bookUrl)
+
     /** Cheap plugin chapter-list hash; null when the source has no hash. */
     suspend fun chapterListHash(bookUrl: String): String? = null
 }
@@ -22,4 +31,6 @@ interface LibraryBookRefreshPort {
 data class RefreshResult(
     val count: Int? = null,
     val error: PluginError? = null,
+    val lastPage: Int? = null,
+    val added: Int = 0,
 )

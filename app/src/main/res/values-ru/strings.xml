@@ -170,6 +170,7 @@
     <string name="book_chapters_loading">Загрузка глав…</string>
     <string name="book_chapters_refreshing">Обновление глав…</string>
     <string name="book_chapters_refresh_cd">Обновить главы</string>
+    <string name="book_chapters_full_reparse">Полная пересборка списка глав</string>
     <string name="book_chapters_refresh_failed">Не удалось обновить главы</string>
     <string name="book_chapters_refresh_failed_desc">Источник не вернул список глав. Повторите запрос.</string>
     <string name="book_no_chapters">Нет глав</string>
@@ -845,6 +846,7 @@
     <string name="updates_settings_desc">Настройки приложения и библиотеки</string>
     <string name="updates_empty_title">Новых глав нет</string>
     <string name="updates_empty_desc">Все книги на полках обновлены.</string>
+    <string name="st_updates_pending_fmt">С обновлениями: %1$d</string>
     <string name="updates_error_title">Не удалось проверить обновления</string>
     <string name="updates_error_desc">Проверьте соединение или источник и повторите попытку.</string>
     <string name="st_updates_header_desc">Обновления приложения и библиотеки</string>
@@ -968,6 +970,7 @@
     <string name="st_updates_notif_book_line_fmt">%1$s — +%2$d</string>
     <string name="st_updates_notif_more_fmt">и ещё %1$d</string>
     <string name="st_updates_notif_summary_fmt">Проверено %1$d · обновлено %2$d · ошибок %3$d</string>
+    <string name="st_updates_notif_skipped_fmt">и пропущено: %1$d (источник остывает)</string>
     <string name="st_updates_app_notif_channel">Обновления приложения</string>
     <string name="st_updates_app_notif_channel_desc">Новый релиз MiruTime</string>
     <string name="st_updates_app_notif_title">Доступно обновление</string>

@@ -38,4 +38,32 @@ class LibraryUpdateNotificationTextTest {
     fun `empty list produces no lines`() {
         assertEquals(emptyList<String>(), libraryUpdateLines(emptyList(), format = ::format, more = ::more))
     }
+
+    @Test
+    fun `inbox lines come from the run summary and add the skipped count`() {
+        assertEquals(
+            listOf("Book 1 +1", "Book 2 +2", "skipped 3"),
+            libraryUpdateInboxLines(
+                books = listOf("Book 1" to 1, "Book 2" to 2),
+                skipped = 3,
+                format = ::format,
+                more = ::more,
+                skippedFormat = { "skipped $it" },
+            ),
+        )
+    }
+
+    @Test
+    fun `no skipped line when nothing was skipped`() {
+        assertEquals(
+            listOf("Book 1 +1"),
+            libraryUpdateInboxLines(
+                books = listOf("Book 1" to 1),
+                skipped = 0,
+                format = ::format,
+                more = ::more,
+                skippedFormat = { "skipped $it" },
+            ),
+        )
+    }
 }

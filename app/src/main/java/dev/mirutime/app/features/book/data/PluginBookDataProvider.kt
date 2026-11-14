@@ -38,6 +38,7 @@ import dev.mirutime.core.reader.ChapterSource
 import dev.mirutime.core.text.chapterHtml
 import dev.mirutime.core.text.textToParagraphHtml
 import dev.mirutime.core.api.BookMeta
+import dev.mirutime.core.api.Chapter
 import dev.mirutime.core.api.ChapterContent as CoreChapterContent
 import dev.mirutime.core.api.MiruError
 import dev.mirutime.core.api.Outcome
@@ -71,6 +72,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -983,6 +986,13 @@ class PluginBookDataProvider(
     companion object {
         private const val STATUS_LOG_LIMIT = 128
         private const val STATUS_LOG_MIN_INTERVAL_MS = 30_000L
+        // Lower bound for a plausible page size. Pages 1..N-1 are guaranteed
+        // full, so a stored count below this floor next to a stored page N
+        // means the counter does not describe the rows; real pages are far
+        // larger than this.
+        private const val MIN_CHAPTERS_PER_PAGE = 30
+        // A page counter past this is a broken script, not a long book.
+        private const val MAX_CHAPTER_PAGES = 1000
 
         internal fun directBookFileRow(
             meta: dev.mirutime.app.features.finder.data.LocalSafBook,
@@ -1142,6 +1152,7 @@ class PluginBookDataProvider(
     // and a typed failure keeps the rows while reaching the caller.
     override suspend fun refreshChaptersOutcome(
         bookUrl: String,
+        forceFull: Boolean,
     ): Outcome<List<BookChapter>> {
         invalidateChapterCaches(bookUrl)
         if (isLocalFileBook(realUrl(bookUrl))) {
@@ -1149,10 +1160,59 @@ class PluginBookDataProvider(
             return Outcome.Ok(localSafChapters(bookUrl))
         }
         if (LocalBookProvider.isLocalBook(realUrl(bookUrl))) return Outcome.Ok(localChapters(bookUrl))
+        // Paged sources go through the incremental counter path so the button
+        // refreshes chaptersLastPage too; non-paged sources keep the drain.
+        val sourceId = PluginBookIndex.sourceForBook(bookUrl)
+        val source = sourceId?.let { pluginSourceFor(it) }
+        val repo = library
+        val row = sourceId?.let { repo?.book(it, realUrl(bookUrl)) } ?: repo?.book(bookUrl)
+        if (source != null && source.supportsPages && row != null && repo != null) {
+            if (forceFull) {
+                // Explicit repair: drain every page and accept a shorter list as
+                // the source's truth (NoveLA fixBook). Any page failure still
+                // aborts without writing, so a truncated fetch cannot wipe rows.
+                val storedCount = repo.chapterCount(row.bookId)
+                MiruLog.d("chapters", "event=chapters-refresh-manual pages=full force=true")
+                return when (
+                    val outcome = refreshFullCount(
+                        bookUrl,
+                        source,
+                        repo,
+                        row.bookId,
+                        storedCount,
+                        allowShrink = true,
+                    )
+                ) {
+                    is Outcome.Err -> outcome
+                    is Outcome.Ok -> Outcome.Ok(storedChapters(bookUrl).orEmpty())
+                }
+            }
+            val lastPage = row.chaptersLastPage
+            val incremental = lastPage != null && lastPage > 0 &&
+                repo.chapterCount(row.bookId) >= (lastPage - 1) * MIN_CHAPTERS_PER_PAGE + 1
+            return when (val outcome = refreshChapterCountOutcome(bookUrl, lastPage)) {
+                is Outcome.Err -> outcome
+                is Outcome.Ok -> {
+                    MiruLog.d(
+                        "chapters",
+                        "event=chapters-refresh-manual pages=${if (incremental) "incremental" else "full"} " +
+                            "added=${outcome.value?.added ?: 0}",
+                    )
+                    Outcome.Ok(storedChapters(bookUrl).orEmpty())
+                }
+            }
+        }
         val stored = storedChapters(bookUrl)
         return when (val result = fetchPluginChaptersOutcome(bookUrl, stored?.size ?: 0)) {
             is Outcome.Err -> result
-            is Outcome.Ok -> Outcome.Ok(result.value ?: stored.orEmpty())
+            is Outcome.Ok -> {
+                val fetched = result.value
+                if (fetched != null) {
+                    val added = (fetched.size - (stored?.size ?: 0)).coerceAtLeast(0)
+                    MiruLog.d("chapters", "event=chapters-refresh-manual pages=full added=$added")
+                }
+                Outcome.Ok(fetched ?: stored.orEmpty())
+            }
         }
     }
 
@@ -1175,6 +1235,218 @@ class PluginBookDataProvider(
     }
 
     override fun lastPluginError(bookUrl: String): PluginError? = pluginErrors[bookUrl]
+
+    // Incremental update check (NoveLA parsePage port). A paged source appends
+    // only what the stored pages do not cover instead of draining the whole
+    // list. Any page failure is a no-op: rows and chaptersLastPage stay where
+    // they were, so the next run retries the same page.
+    override suspend fun refreshChapterCountOutcome(
+        bookUrl: String,
+        lastPage: Int?,
+    ): Outcome<ChapterRefresh?> {
+        invalidateChapterCaches(bookUrl)
+        if (isLocalFileBook(realUrl(bookUrl))) {
+            localSaf?.invalidate(realUrl(bookUrl))
+            return Outcome.Ok(ChapterRefresh(localSafChapters(bookUrl).size.takeIf { it > 0 }))
+        }
+        if (LocalBookProvider.isLocalBook(realUrl(bookUrl))) {
+            return Outcome.Ok(ChapterRefresh(localChapters(bookUrl).size.takeIf { it > 0 }))
+        }
+        val sourceId = PluginBookIndex.sourceForBook(bookUrl) ?: return Outcome.Ok(null)
+        val source = pluginSourceFor(sourceId) ?: return Outcome.Ok(null)
+        val repo = library
+        val row = repo?.book(sourceId, realUrl(bookUrl)) ?: repo?.book(bookUrl)
+        val bookId = row?.bookId
+        val storedCount = bookId?.let { repo?.chapterCount(it) } ?: 0
+        if (!source.supportsPages) return refreshLegacyCount(bookUrl, storedCount)
+        val storedUrls: Set<String> = bookId
+            ?.let { id -> repo?.chapters(id)?.mapTo(HashSet()) { it.url } }
+            .orEmpty()
+        // The stored row wins over the caller: the page counter and the rows
+        // must describe the same state for the incremental path to be safe.
+        val effectiveLastPage = row?.chaptersLastPage ?: lastPage
+        // Pages 1..N-1 are guaranteed full, so a stored count below this floor
+        // means the counter does not describe the stored rows.
+        val trustedPage = effectiveLastPage?.takeIf {
+            it > 0 && storedCount >= (it - 1) * MIN_CHAPTERS_PER_PAGE + 1
+        }
+        return if (trustedPage != null && repo != null && bookId != null) {
+            refreshIncrementalCount(bookUrl, source, repo, bookId, storedCount, storedUrls, trustedPage)
+        } else {
+            refreshFullCount(bookUrl, source, repo, bookId, storedCount)
+        }
+    }
+
+    private suspend fun refreshIncrementalCount(
+        bookUrl: String,
+        source: PluginSource,
+        repo: LibraryRepository,
+        bookId: Long,
+        storedCount: Int,
+        storedUrls: Set<String>,
+        lastPage: Int,
+    ): Outcome<ChapterRefresh?> {
+        val first = when (val result = source.chapterPage(realUrl(bookUrl), lastPage)) {
+            is Outcome.Err -> {
+                MiruLog.d("chapters", "event=chapters-incremental-fail page=$lastPage")
+                return result
+            }
+            is Outcome.Ok -> result.value
+        }
+        val newTotal = first.totalPages
+        if (newTotal < lastPage) {
+            // The counter went backwards: the stored page no longer describes
+            // the list, so pay for a full reparse and reset the counter.
+            return refreshFullCount(bookUrl, source, repo, bookId, storedCount)
+        }
+        if (newTotal < 1 || newTotal > MAX_CHAPTER_PAGES) {
+            MiruLog.d("chapters", "event=chapters-pages-limit pages=$newTotal")
+            return Outcome.Err(PluginError.ScriptError("chapter pages exceed limit"))
+        }
+        val collected = ArrayList<List<Chapter>>(
+            (newTotal - lastPage + 1).coerceAtMost(MAX_CHAPTER_PAGES),
+        )
+        collected += first.chapters
+        for (page in (lastPage + 1)..newTotal) {
+            currentCoroutineContext().ensureActive()
+            when (val result = source.chapterPage(realUrl(bookUrl), page)) {
+                is Outcome.Err -> {
+                    MiruLog.d("chapters", "event=chapters-incremental-fail page=$page")
+                    return result
+                }
+                is Outcome.Ok -> collected += result.value.chapters
+            }
+        }
+        val baseUrl = source.metadata.baseUrl
+        // Incremental never deletes: only URLs missing from the stored rows
+        // become new chapters, continuing after the highest stored index (a
+        // gap from removed rows must not be reused).
+        val baseIndex = repo.maxChapterIndex(bookId) ?: 0
+        val fresh = collected.asSequence().flatten()
+            .map { chapter -> chapter to (resolveCoverUrl(chapter.url, baseUrl) ?: chapter.url) }
+            .filter { (_, url) -> url.isNotBlank() && url !in storedUrls }
+            .distinctBy { (_, url) -> url }
+            .toList()
+        val seeds = fresh.mapIndexed { position, (chapter, url) ->
+            val index = baseIndex + position + 1
+            ChapterSeed(
+                index = index,
+                url = url,
+                title = chapter.title.trim().ifBlank { "Chapter $index" },
+            )
+        }
+        val at = now()
+        if (seeds.isEmpty()) {
+            repo.updateChaptersLastPage(bookId, newTotal, at)
+            MiruLog.d(
+                "chapters",
+                "event=chapters-incremental lastPage=$lastPage newTotal=$newTotal added=0",
+            )
+            return Outcome.Ok(ChapterRefresh(count = storedCount, lastPage = newTotal, added = 0))
+        }
+        val added = repo.appendChaptersAndStamp(bookId, seeds, newTotal, at)
+        invalidateChapterCaches(bookUrl)
+        MiruLog.d(
+            "chapters",
+            "event=chapters-incremental lastPage=$lastPage newTotal=$newTotal added=$added",
+        )
+        return Outcome.Ok(
+            ChapterRefresh(count = storedCount + added, lastPage = newTotal, added = added),
+        )
+    }
+
+    private suspend fun refreshFullCount(
+        bookUrl: String,
+        source: PluginSource,
+        repo: LibraryRepository?,
+        bookId: Long?,
+        storedCount: Int,
+        // Only an explicit user repair may accept a shorter list; background
+        // checks keep the shrink guard so a bad parse is not a mass deletion.
+        allowShrink: Boolean = false,
+    ): Outcome<ChapterRefresh?> {
+        val first = when (val result = source.chapterPage(realUrl(bookUrl), 1)) {
+            is Outcome.Err -> return result
+            is Outcome.Ok -> result.value
+        }
+        val totalPages = first.totalPages
+        if (totalPages < 1 || totalPages > MAX_CHAPTER_PAGES) {
+            MiruLog.d("chapters", "event=chapters-pages-limit pages=$totalPages")
+            return Outcome.Err(PluginError.ScriptError("chapter pages exceed limit"))
+        }
+        val collected = ArrayList<Chapter>(first.chapters)
+        for (page in 2..totalPages) {
+            currentCoroutineContext().ensureActive()
+            when (val result = source.chapterPage(realUrl(bookUrl), page)) {
+                is Outcome.Err -> {
+                    MiruLog.d("chapters", "event=chapters-full-fail page=$page")
+                    return result
+                }
+                is Outcome.Ok -> collected += result.value.chapters
+            }
+        }
+        val baseUrl = source.metadata.baseUrl
+        val mapped = dedupeChapters(
+            collected.mapIndexed { position, chapter ->
+                val index = position + 1
+                BookChapter(
+                    index = index,
+                    title = chapter.title.trim().ifBlank { "Chapter $index" },
+                    isRead = false,
+                    downloaded = false,
+                    translated = false,
+                    downloading = false,
+                    url = resolveCoverUrl(chapter.url, baseUrl) ?: chapter.url,
+                )
+            },
+        )
+        if (mapped.isEmpty()) return Outcome.Ok(null)
+        // Same shrink guard as the legacy drain: a shorter list is a parse
+        // failure, not a mass deletion.
+        if (!allowShrink && mapped.size < storedCount) {
+            MiruLog.d("chapters", "event=chapters-full pages=$totalPages result=shrunk")
+            return Outcome.Ok(null)
+        }
+        val at = now()
+        val added = (mapped.size - storedCount).coerceAtLeast(0)
+        if (repo != null) {
+            if (bookId != null) {
+                repo.replaceChapters(
+                    bookId = bookId,
+                    seeds = mapped.map { chapter ->
+                        ChapterSeed(
+                            index = chapter.index,
+                            url = chapter.url ?: chapterKey(bookUrl, chapter.index),
+                            title = chapter.title,
+                        )
+                    },
+                    at = at,
+                )
+                repo.updateChaptersLastPage(bookId, totalPages, at)
+                invalidateChapterCaches(bookUrl)
+            } else {
+                repo.updateTotalChapters(bookUrl, mapped.size)
+            }
+        }
+        MiruLog.d("chapters", "event=chapters-full pages=$totalPages added=$added")
+        return Outcome.Ok(ChapterRefresh(count = mapped.size, lastPage = totalPages, added = added))
+    }
+
+    private suspend fun refreshLegacyCount(
+        bookUrl: String,
+        storedCount: Int,
+    ): Outcome<ChapterRefresh?> =
+        when (val result = fetchPluginChaptersOutcome(bookUrl, storedCount)) {
+            is Outcome.Err -> result
+            is Outcome.Ok -> Outcome.Ok(
+                result.value?.let { chapters ->
+                    ChapterRefresh(
+                        count = chapters.size,
+                        added = (chapters.size - storedCount).coerceAtLeast(0),
+                    )
+                },
+            )
+        }
 
     private fun invalidateChapterCaches(bookUrl: String) {
         chapterLists.remove(bookUrl)

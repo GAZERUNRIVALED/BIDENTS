@@ -98,9 +98,9 @@ class BookCoverStore(
         // freshly resolved URL gets one real fetch. A failed force keeps the
         // old file/URI (every failure branch below returns `local`).
         force: Boolean = false,
-    ): String? {
+    ): String? = withContext(Dispatchers.IO) {
         val url = remoteUrl?.trim()?.takeIf { it.isNotEmpty() }
-        return lockFor(bookId).withLock {
+        lockFor(bookId).withLock {
             val at = clock()
             val row = runCatching { load(bookId) }.getOrNull()
             val local = validLocal(bookId, row)
@@ -250,31 +250,32 @@ class BookCoverStore(
 
     // Embedded local cover (imported EPUB/FB2/CBZ): no fetch, same atomic
     // file/path as a downloaded one so the library resolves it unchanged.
-    suspend fun storeLocalCover(bookId: Long, remoteUrl: String?, bytes: ByteArray): Boolean {
-        if (!CoverBytes.isValidImage(bytes)) return false
-        return lockFor(bookId).withLock {
-            val at = clock()
-            val target = coverFile(bookId)
-            val written = runCatching { writeAtomic(target, bytes) }.isSuccess
-            if (!written) return@withLock false
-            val row = runCatching { load(bookId) }.getOrNull()
-            runCatching {
-                save(
-                    (row ?: BookCoverEntity(bookId = bookId, remoteUrl = remoteUrl)).copy(
-                        remoteUrl = remoteUrl,
-                        localPath = target.absolutePath,
-                        sha256 = CoverBytes.sha256Hex(bytes),
-                        bytes = bytes.size.toLong(),
-                        fetchedAt = at,
-                        checkedAt = at,
-                        lastError = null,
-                        retryAt = null,
-                    ),
-                )
+    suspend fun storeLocalCover(bookId: Long, remoteUrl: String?, bytes: ByteArray): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!CoverBytes.isValidImage(bytes)) return@withContext false
+            lockFor(bookId).withLock {
+                val at = clock()
+                val target = coverFile(bookId)
+                val written = runCatching { writeAtomic(target, bytes) }.isSuccess
+                if (!written) return@withLock false
+                val row = runCatching { load(bookId) }.getOrNull()
+                runCatching {
+                    save(
+                        (row ?: BookCoverEntity(bookId = bookId, remoteUrl = remoteUrl)).copy(
+                            remoteUrl = remoteUrl,
+                            localPath = target.absolutePath,
+                            sha256 = CoverBytes.sha256Hex(bytes),
+                            bytes = bytes.size.toLong(),
+                            fetchedAt = at,
+                            checkedAt = at,
+                            lastError = null,
+                            retryAt = null,
+                        ),
+                    )
+                }
+                true
             }
-            true
         }
-    }
 
     private fun lockFor(bookId: Long): Mutex = locks.computeIfAbsent(bookId) { Mutex() }
 

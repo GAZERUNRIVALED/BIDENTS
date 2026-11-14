@@ -19,7 +19,9 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 // Parity coverage for the NoveLA LuaSourceAdapter semantics fixed in
 // LuaPluginSource: per-field book getters, the parsePage chapter path, the
@@ -203,6 +205,68 @@ class LuaPluginSourceParityTest {
         val result = runBlocking { s.chapters("https://site.example/book/1") }
         val err = assertIs<Outcome.Err>(result)
         assertIs<PluginError.ScriptError>(err.error)
+    }
+
+    @Test
+    fun `supportsPages mirrors the parsePage declaration`() {
+        assertTrue(source("function parsePage(u, p) return {} end").supportsPages)
+        val listOnly = source("function getChapterList(u) return {} end")
+        assertFalse(listOnly.supportsPages)
+        // sources without pagination keep the interface default: Err, not a hang
+        val result = runBlocking { listOnly.chapterPage("u", 1) }
+        assertIs<PluginError.ScriptError>(assertIs<Outcome.Err>(result).error)
+    }
+
+    @Test
+    fun `chapterPage returns one page with totalPages`() {
+        val s = source(
+            """
+            function parsePage(bookUrl, page)
+              if page == 1 then
+                return { chapters = { { title = "Ch 1", url = "u1" } }, totalPages = 2 }
+              end
+              return { chapters = { { title = "Ch 2", url = "u2" } }, totalPages = 2 }
+            end
+            """.trimIndent(),
+        )
+        val first = runBlocking { s.chapterPage("u", 1) }.ok()
+        assertEquals(2, first.totalPages)
+        assertEquals(listOf("Ch 1"), first.chapters.map { it.title })
+        val second = runBlocking { s.chapterPage("u", 2) }.ok()
+        assertEquals(2, second.totalPages)
+        assertEquals(listOf("Ch 2"), second.chapters.map { it.title })
+    }
+
+    // A single-page plugin declares no totalPages: one page, not zero.
+    @Test
+    fun `chapterPage defaults totalPages to one when absent`() {
+        val s = source(
+            """
+            function parsePage(bookUrl, page)
+              return { chapters = { { title = "Only", url = "u1" } } }
+            end
+            """.trimIndent(),
+        )
+        val page = runBlocking { s.chapterPage("u", 1) }.ok()
+        assertEquals(1, page.totalPages)
+        assertEquals(listOf("Only"), page.chapters.map { it.title })
+    }
+
+    @Test
+    fun `chapterPage pageTwoFailureIsErr`() {
+        val s = source(
+            """
+            function parsePage(bookUrl, page)
+              if page == 1 then
+                return { chapters = { { title = "Ch 1", url = "u1" } }, totalPages = 3 }
+              end
+              error("page 2 exploded")
+            end
+            """.trimIndent(),
+        )
+        val result = runBlocking { s.chapterPage("u", 2) }
+        val scriptError = assertIs<PluginError.ScriptError>(assertIs<Outcome.Err>(result).error)
+        assertEquals("parsePage failed on page 2", scriptError.detail)
     }
 
     @Test

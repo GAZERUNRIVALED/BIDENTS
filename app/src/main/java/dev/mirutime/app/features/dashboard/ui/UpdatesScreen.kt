@@ -148,6 +148,7 @@ fun UpdatesScreen(
             UpdatesHeader(
                 refreshing = refreshing,
                 progress = progress,
+                pending = updates.size,
                 onCheckNow = ::runCheck,
                 onOpenSettings = onOpenSettings,
                 modifier = Modifier.padding(bottom = MiruSpace.M),
@@ -201,6 +202,7 @@ fun UpdatesScreen(
 private fun UpdatesHeader(
     refreshing: Boolean,
     progress: UpdateProgress?,
+    pending: Int,
     onCheckNow: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
@@ -246,6 +248,17 @@ private fun UpdatesHeader(
         title = stringResource(R.string.st_updates_library),
         description = stringResource(R.string.st_updates_library_desc),
         contentPadding = PaddingValues(0.dp),
+        trailing = if (pending > 0) {
+            {
+                Text(
+                    text = stringResource(R.string.st_updates_pending_fmt, pending),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = LocalMiruExtraColors.current.muted,
+                )
+            }
+        } else {
+            null
+        },
         modifier = modifier,
     ) {
         Column(modifier = Modifier.padding(MiruSpace.L)) {
