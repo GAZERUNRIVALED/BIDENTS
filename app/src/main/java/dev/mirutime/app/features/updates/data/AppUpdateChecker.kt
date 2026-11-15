@@ -12,6 +12,8 @@ object AppRelease {
     const val RepoUrl = "https://github.com/HnDK0/MiruTime"
     const val LatestReleaseApi = "https://api.github.com/repos/HnDK0/MiruTime/releases/latest"
     const val ReleasesUrl = "$RepoUrl/releases"
+    // Note the braces: "$AppRelease.RepoUrl" would interpolate the object only.
+    const val NewIssueUrl = "$RepoUrl/issues/new"
 }
 
 sealed interface AppUpdateResult {

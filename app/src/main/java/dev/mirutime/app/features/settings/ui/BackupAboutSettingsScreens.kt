@@ -30,6 +30,7 @@ import dev.mirutime.app.BuildConfig
 import dev.mirutime.app.R
 import dev.mirutime.core.log.LogExporter
 import dev.mirutime.core.log.MiruFileLogger
+import dev.mirutime.core.log.MiruLog
 import dev.mirutime.uikit.LocalMiruExtraColors
 import dev.mirutime.uikit.MiruActionRow
 import dev.mirutime.uikit.MiruRowDivider
@@ -61,7 +62,14 @@ fun AboutSettingsScreen(contentPadding: PaddingValues) {
         "$name · ${BuildConfig.BUILD_TYPE} · $hash"
     }
     fun open(url: String) {
-        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            // Settings can be hosted by a non-Activity context, where Android
+            // rejects startActivity without this flag.
+            if (context !is android.app.Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { context.startActivity(intent) }.onFailure { e ->
+            MiruLog.w("settings", "event=about_link_failed host=${Uri.parse(url).host}", e)
+        }
     }
     fun toast(message: String) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -129,7 +137,7 @@ fun AboutSettingsScreen(contentPadding: PaddingValues) {
                     icon = Icons.Filled.BugReport,
                     title = stringResource(R.string.st_about_report),
                     subtitle = stringResource(R.string.st_about_report_desc),
-                    onClick = { open("$AppRelease.RepoUrl/issues/new") },
+                    onClick = { open(AppRelease.NewIssueUrl) },
                 )
             }
         }
