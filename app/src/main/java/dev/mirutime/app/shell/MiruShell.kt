@@ -583,6 +583,11 @@ fun MiruShell(
             exitTransition = { fadeOut(animationSpec = tween(150)) },
             popEnterTransition = { fadeIn(animationSpec = tween(200)) },
             popExitTransition = { fadeOut(animationSpec = tween(150)) },
+            // Navigation 2.10 defaults the predictive pop to scaleOut(0.7f), so a
+            // back press shrinks the outgoing screen into a card. Keep the pop
+            // crossfade for the predictive path too.
+            predictivePopEnterTransition = { fadeIn(animationSpec = tween(200)) },
+            predictivePopExitTransition = { fadeOut(animationSpec = tween(150)) },
         ) {
             composable(MiruDestination.Dashboard.route) {
                 DashboardScreen(
