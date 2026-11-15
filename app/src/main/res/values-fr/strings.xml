@@ -592,13 +592,8 @@
     <string name="finder_sort_asc_cd">Croissant</string>
     <string name="finder_sort_desc_cd">Décroissant</string>
     <string name="finder_genres_title">Genres</string>
-    <string name="finder_genres_show_all">Tout afficher (%1$d)</string>
-    <string name="finder_genres_less">Afficher moins</string>
     <string name="finder_status_title">Statut</string>
     <string name="finder_ongoing_only">En cours uniquement</string>
-    <string name="finder_options_search_hint">Options de recherche</string>
-    <string name="finder_options_nothing_found">Aucune option ne correspond à votre recherche.</string>
-    <string name="finder_options_type_to_narrow">Affichage des 100 premiers. Tapez pour affiner la liste.</string>
     <string name="finder_filter_loading">Chargement des filtres…</string>
     <string name="finder_filter_empty">Cette source ne déclare aucun filtre.</string>
     <string name="finder_filter_error">Impossible de charger les filtres</string>

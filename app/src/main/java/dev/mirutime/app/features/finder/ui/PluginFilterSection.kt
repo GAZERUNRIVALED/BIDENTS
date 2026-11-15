@@ -46,6 +46,7 @@ import dev.mirutime.app.features.finder.domain.toggleCheckbox
 import dev.mirutime.app.features.finder.domain.toggleSortDirection
 import dev.mirutime.app.features.finder.domain.toggleTag
 import dev.mirutime.app.features.finder.domain.withSort
+import dev.mirutime.uikit.FilterChipGroup
 import dev.mirutime.uikit.ChipOption
 import dev.mirutime.uikit.LocalMiruExtraColors
 import dev.mirutime.uikit.MiruFilterChip

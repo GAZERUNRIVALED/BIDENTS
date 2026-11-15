@@ -605,13 +605,8 @@
     <string name="finder_sort_asc_cd">По возрастанию</string>
     <string name="finder_sort_desc_cd">По убыванию</string>
     <string name="finder_genres_title">Жанры</string>
-    <string name="finder_genres_show_all">Показать все (%1$d)</string>
-    <string name="finder_genres_less">Свернуть</string>
     <string name="finder_status_title">Статус</string>
     <string name="finder_ongoing_only">Только выходящие</string>
-    <string name="finder_options_search_hint">Поиск по вариантам</string>
-    <string name="finder_options_nothing_found">Ничего не подошло под запрос.</string>
-    <string name="finder_options_type_to_narrow">Показаны первые 100. Введите текст, чтобы сузить список.</string>
     <string name="finder_filter_loading">Загрузка фильтров…</string>
     <string name="finder_filter_empty">Этот источник не объявляет фильтров.</string>
     <string name="finder_filter_error">Не удалось загрузить фильтры</string>

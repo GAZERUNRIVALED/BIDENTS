@@ -570,13 +570,8 @@
     <string name="finder_sort_asc_cd">Naik</string>
     <string name="finder_sort_desc_cd">Turun</string>
     <string name="finder_genres_title">Genre</string>
-    <string name="finder_genres_show_all">Tampilkan semua (%1$d)</string>
-    <string name="finder_genres_less">Tampilkan lebih sedikit</string>
     <string name="finder_status_title">Status</string>
     <string name="finder_ongoing_only">Hanya yang berjalan</string>
-    <string name="finder_options_search_hint">Cari opsi</string>
-    <string name="finder_options_nothing_found">Tidak ada opsi yang cocok dengan pencarian Anda.</string>
-    <string name="finder_options_type_to_narrow">Menampilkan 100 pertama. Ketik untuk mempersempit daftar.</string>
     <string name="finder_filter_loading">Memuat filter…</string>
     <string name="finder_filter_empty">Sumber ini tidak mendeklarasikan filter.</string>
     <string name="finder_filter_error">Tidak dapat memuat filter</string>

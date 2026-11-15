@@ -624,13 +624,8 @@
     <string name="finder_sort_asc_cd">تصاعدي</string>
     <string name="finder_sort_desc_cd">تنازلي</string>
     <string name="finder_genres_title">الأنواع</string>
-    <string name="finder_genres_show_all">عرض الكل (%1$d)</string>
-    <string name="finder_genres_less">عرض أقل</string>
     <string name="finder_status_title">الحالة</string>
     <string name="finder_ongoing_only">المستمرة فقط</string>
-    <string name="finder_options_search_hint">خيارات البحث</string>
-    <string name="finder_options_nothing_found">لا خيارات مطابقة لبحثك.</string>
-    <string name="finder_options_type_to_narrow">عرض أول 100. اكتب لتضييق القائمة.</string>
     <string name="finder_filter_loading">جارٍ تحميل المرشحات…</string>
     <string name="finder_filter_empty">هذا المصدر لا يعلن أي مرشحات.</string>
     <string name="finder_filter_error">تعذّر تحميل المرشحات</string>

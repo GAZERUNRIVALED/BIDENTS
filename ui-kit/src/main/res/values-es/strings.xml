@@ -82,4 +82,9 @@
     <string name="field_clear_search">Borrar búsqueda</string>
     <string name="field_show_secret">Mostrar valor</string>
     <string name="field_hide_secret">Ocultar valor</string>
+    <string name="finder_genres_show_all">Mostrar todos (%1$d)</string>
+    <string name="finder_genres_less">Mostrar menos</string>
+    <string name="finder_options_search_hint">Opciones de búsqueda</string>
+    <string name="finder_options_nothing_found">Ninguna opción coincide con tu búsqueda.</string>
+    <string name="finder_options_type_to_narrow">Mostrando las primeras 100. Escribe para acotar la lista.</string>
 </resources>

@@ -15,8 +15,16 @@ class InputStandardContractTest {
         "feature-reader/src/main/java",
     ).map(::File).filter { it.isDirectory }
 
+    // Components moved into :ui-kit still have their wiring asserted here, but
+    // the raw-field scan above stays on the app modules: the kit owns the
+    // BasicTextField primitives by design.
+    private val kitRoots: List<File> = listOf(
+        "../ui-kit/src/main/java",
+        "ui-kit/src/main/java",
+    ).map(::File).filter { it.isDirectory }
+
     private fun source(relative: String): String =
-        roots.map { File(it, relative) }.first { it.isFile }.readText()
+        (roots + kitRoots).map { File(it, relative) }.first { it.isFile }.readText()
 
     @Test
     fun `modules never build a raw text field`() {
@@ -40,7 +48,7 @@ class InputStandardContractTest {
                 .contains("MiruSearchDebounceMillis"),
         )
         assertTrue(
-            source("dev/mirutime/app/features/finder/ui/FilterChipGroup.kt")
+            source("dev/mirutime/uikit/FilterChipGroup.kt")
                 .contains("MiruSearchDebounceMillis"),
         )
         assertFalse(

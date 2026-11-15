@@ -581,13 +581,8 @@
     <string name="finder_sort_asc_cd">Artan</string>
     <string name="finder_sort_desc_cd">Azalan</string>
     <string name="finder_genres_title">Türler</string>
-    <string name="finder_genres_show_all">Tümünü göster (%1$d)</string>
-    <string name="finder_genres_less">Daha az göster</string>
     <string name="finder_status_title">Durum</string>
     <string name="finder_ongoing_only">Yalnızca devam edenler</string>
-    <string name="finder_options_search_hint">Seçeneklerde ara</string>
-    <string name="finder_options_nothing_found">Aramanızla eşleşen seçenek yok.</string>
-    <string name="finder_options_type_to_narrow">İlk 100 gösteriliyor. Listeyi daraltmak için yazın.</string>
     <string name="finder_filter_loading">Filtreler yükleniyor…</string>
     <string name="finder_filter_empty">Bu kaynak filtre bildirmiyor.</string>
     <string name="finder_filter_error">Filtreler yüklenemedi</string>

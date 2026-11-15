@@ -1,12 +1,11 @@
 @file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
-package dev.mirutime.app.features.finder.ui
+package dev.mirutime.uikit
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -18,14 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import dev.mirutime.app.R
-import dev.mirutime.uikit.ChipOption
-import dev.mirutime.uikit.LocalMiruExtraColors
-import dev.mirutime.uikit.MiruFilterChip
-import dev.mirutime.uikit.MiruSpace
 import kotlinx.coroutines.delay
-import dev.mirutime.uikit.MiruSearchBar
-import dev.mirutime.uikit.MiruSearchDebounceMillis
 
 // Multi-select chip group for long option lists.
 //   <= SearchThreshold options: plain chips, collapsed to 3 rows with

@@ -96,7 +96,7 @@ import dev.mirutime.data.library.libraryBookKey
 import dev.mirutime.core.api.getOrNull
 import dev.mirutime.core.log.MiruLog
 import dev.mirutime.app.di.ReaderGraph
-import dev.mirutime.app.features.finder.ui.FilterChipGroup
+import dev.mirutime.uikit.FilterChipGroup
 import dev.mirutime.app.features.library.data.BulkActionResult
 import dev.mirutime.app.features.library.data.LibraryDataProvider
 import dev.mirutime.app.features.library.data.LibraryFacets

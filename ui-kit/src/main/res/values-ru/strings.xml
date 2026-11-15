@@ -82,4 +82,9 @@
     <string name="field_clear_search">Очистить поиск</string>
     <string name="field_show_secret">Показать значение</string>
     <string name="field_hide_secret">Скрыть значение</string>
+    <string name="finder_genres_show_all">Показать все (%1$d)</string>
+    <string name="finder_genres_less">Свернуть</string>
+    <string name="finder_options_search_hint">Поиск по вариантам</string>
+    <string name="finder_options_nothing_found">Ничего не подошло под запрос.</string>
+    <string name="finder_options_type_to_narrow">Показаны первые 100. Введите текст, чтобы сузить список.</string>
 </resources>

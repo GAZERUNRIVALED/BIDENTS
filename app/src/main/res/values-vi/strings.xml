@@ -570,13 +570,8 @@
     <string name="finder_sort_asc_cd">Tăng dần</string>
     <string name="finder_sort_desc_cd">Giảm dần</string>
     <string name="finder_genres_title">Thể loại</string>
-    <string name="finder_genres_show_all">Hiện tất cả (%1$d)</string>
-    <string name="finder_genres_less">Hiện ít hơn</string>
     <string name="finder_status_title">Trạng thái</string>
     <string name="finder_ongoing_only">Chỉ đang tiến hành</string>
-    <string name="finder_options_search_hint">Tùy chọn tìm kiếm</string>
-    <string name="finder_options_nothing_found">Không có tùy chọn phù hợp tìm kiếm.</string>
-    <string name="finder_options_type_to_narrow">Đang hiện 100 mục đầu. Nhập để thu hẹp danh sách.</string>
     <string name="finder_filter_loading">Đang tải bộ lọc…</string>
     <string name="finder_filter_empty">Nguồn này không khai báo bộ lọc nào.</string>
     <string name="finder_filter_error">Không tải được bộ lọc</string>

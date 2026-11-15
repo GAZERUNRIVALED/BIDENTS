@@ -82,4 +82,9 @@
     <string name="field_clear_search">Bersihkan pencarian</string>
     <string name="field_show_secret">Tampilkan nilai</string>
     <string name="field_hide_secret">Sembunyikan nilai</string>
+    <string name="finder_genres_show_all">Tampilkan semua (%1$d)</string>
+    <string name="finder_genres_less">Tampilkan lebih sedikit</string>
+    <string name="finder_options_search_hint">Cari opsi</string>
+    <string name="finder_options_nothing_found">Tidak ada opsi yang cocok dengan pencarian Anda.</string>
+    <string name="finder_options_type_to_narrow">Menampilkan 100 pertama. Ketik untuk mempersempit daftar.</string>
 </resources>
