@@ -25,6 +25,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.setValue
@@ -57,6 +58,8 @@ import dev.mirutime.app.features.settings.ui.uiLocale
 import dev.mirutime.app.features.webview.ui.LocalWebUserAgent
 import dev.mirutime.app.shell.MiruShell
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 // Real entry: theme state hoisted here so the header sheet and the settings
@@ -118,7 +121,11 @@ class MainActivity : ComponentActivity() {
         openFromIntent(intent)
         val initialRoute = savedInstanceState?.getString("saved_route")
         val (savedMode, savedBg) = loadThemePrefs(applicationContext)
-        val savedLibrary = loadBgLibrary(applicationContext, savedBg)
+        // Filtering the saved library stats each local file; keep it off the
+        // frame thread (StrictMode flags disk reads from the main thread).
+        val savedLibrary = runBlocking(Dispatchers.IO) {
+            loadBgLibrary(applicationContext, savedBg)
+        }
         setContent {
             // Hoisted so the NavController is created before the DB gate and
             // survives process death / restore (otherwise the back stack resets
@@ -168,6 +175,8 @@ class MainActivity : ComponentActivity() {
             // active one is always a member; the order is the order of adding.
             var bgLibrary by remember { mutableStateOf(savedLibrary) }
             fun persist() = saveThemePrefs(applicationContext, themeMode.name, customBg)
+            // Library membership is resolved off the frame thread (file stats).
+            val uiScope = rememberCoroutineScope()
             // A live restore writes theme prefs outside this composition.
             val themeRevision by themePrefsChanges.collectAsState()
             LaunchedEffect(themeRevision) {
@@ -177,7 +186,7 @@ class MainActivity : ComponentActivity() {
                     ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                     ?: ThemeMode.Paper
                 customBg = bg
-                bgLibrary = loadBgLibrary(applicationContext, bg)
+                bgLibrary = withContext(Dispatchers.IO) { loadBgLibrary(applicationContext, bg) }
             }
             val bgSource = if (themeMode == ThemeMode.Custom) customBg else null
             val bgBitmap = rememberBackgroundBitmap(bgSource)
@@ -238,22 +247,37 @@ class MainActivity : ComponentActivity() {
                         customBg = customBg,
                         bgLibrary = bgLibrary,
                         onCustomBg = { source ->
-                            // Presets are applied in place and never join the library.
-                            if (
-                                source != null &&
-                                !isPresetBackgroundPath(applicationContext, source) &&
-                                source !in bgLibrary
-                            ) {
-                                bgLibrary = bgLibrary + source
-                                saveBgLibrary(applicationContext, bgLibrary)
-                            }
                             customBg = source
                             persist()
+                            // Presets are applied in place and never join the
+                            // library. The membership check stats the disk, so
+                            // it runs off the frame thread.
+                            if (source != null) {
+                                uiScope.launch {
+                                    val isPreset = withContext(Dispatchers.IO) {
+                                        isPresetBackgroundPath(applicationContext, source)
+                                    }
+                                    if (!isPreset && source !in bgLibrary) {
+                                        val updated = bgLibrary + source
+                                        bgLibrary = updated
+                                        withContext(Dispatchers.IO) {
+                                            saveBgLibrary(applicationContext, updated)
+                                        }
+                                    }
+                                }
+                            }
                         },
                         onRemoveBg = { source ->
-                            bgLibrary = bgLibrary - source
-                            saveBgLibrary(applicationContext, bgLibrary)
-                            deleteBackgroundFile(applicationContext, source)
+                            val remaining = bgLibrary - source
+                            bgLibrary = remaining
+                            // Both filtering the list and deleting the file
+                            // touch the disk: keep them off the frame thread.
+                            uiScope.launch {
+                                withContext(Dispatchers.IO) {
+                                    saveBgLibrary(applicationContext, remaining)
+                                    deleteBackgroundFile(applicationContext, source)
+                                }
+                            }
                             if (customBg == source) {
                                 customBg = null
                                 // Only the active Custom theme loses its picture;

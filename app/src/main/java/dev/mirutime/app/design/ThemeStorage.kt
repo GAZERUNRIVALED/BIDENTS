@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,9 +72,23 @@ private const val KEY_BG_LIBRARY = "bg_library"
 private const val BG_DIR = "backgrounds"
 internal const val PRESET_BG_DIR = "preset_backgrounds"
 private const val BG_MAX_BYTES = 25 * 1024 * 1024
-private const val BG_STORE_SIDE = 1920
+private const val BG_STORE_SIDE = 2560
 
-internal fun presetBgDir(context: Context) = File(context.filesDir, PRESET_BG_DIR)
+// Resolving filesDir stats the disk (ContextImpl.ensurePrivateDirExists), so the
+// folder is resolved once by the identity of the application context and then
+// reused — never during composition. MiruApp warms it on IO at startup. A
+// different storage root means a different application context.
+private val presetBgDirOwner = java.util.concurrent.atomic.AtomicReference<Context?>(null)
+private val presetBgDirValue = java.util.concurrent.atomic.AtomicReference<File?>(null)
+
+internal fun presetBgDir(context: Context): File {
+    val app = context.applicationContext
+    presetBgDirValue.get()?.takeIf { presetBgDirOwner.get() === app }?.let { return it }
+    val dir = File(app.filesDir, PRESET_BG_DIR)
+    presetBgDirValue.set(dir)
+    presetBgDirOwner.set(app)
+    return dir
+}
 
 internal fun isPresetBackgroundPath(context: Context, source: String): Boolean {
     if (!isLocalBg(source)) return false
@@ -214,6 +229,18 @@ suspend fun importBackground(context: Context, source: String): BackgroundImport
             if (probe.outWidth <= 0 || probe.outHeight <= 0) {
                 return@withContext importFailure(source, BackgroundImportFailure.NotAnImage)
             }
+            // If the original fits within the high-res ceiling, store the original bytes directly
+            // to preserve lossless PNG/WebP/JPEG quality without double compression artifacts.
+            if (probe.outWidth <= BG_STORE_SIDE && probe.outHeight <= BG_STORE_SIDE) {
+                val tmp = File(dir, "$name.tmp")
+                tmp.outputStream().use { it.write(bytes) }
+                if (!tmp.renameTo(target)) {
+                    tmp.delete()
+                    return@withContext importFailure(source, BackgroundImportFailure.StoreFailed)
+                }
+                MiruLog.event("theme", "bg_import", "ok" to true, "lossless" to true, "host" to backgroundHost(source))
+                return@withContext BackgroundImportResult.Success(target.absolutePath)
+            }
             var sample = 1
             while (probe.outWidth / sample > BG_STORE_SIDE || probe.outHeight / sample > BG_STORE_SIDE) {
                 sample *= 2
@@ -225,7 +252,7 @@ suspend fun importBackground(context: Context, source: String): BackgroundImport
                 BitmapFactory.Options().apply { inSampleSize = sample },
             ) ?: return@withContext importFailure(source, BackgroundImportFailure.NotAnImage)
             val tmp = File(dir, "$name.tmp")
-            tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+            tmp.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 95, it) }
             bmp.recycle()
             if (!tmp.renameTo(target)) {
                 tmp.delete()
@@ -243,22 +270,42 @@ suspend fun importBackground(context: Context, source: String): BackgroundImport
 // Removes the stored copy (only files inside our own directory) and the
 // decoded bitmap from memory.
 fun deleteBackgroundFile(context: Context, source: String) {
-    synchronized(bgCache) { bgCache.remove(source) }
+    dropCachedBitmaps(source)
     val file = File(source)
     if (isLocalBg(source) && file.parentFile == bgDir(context)) file.delete()
 }
 
-private val bgCache: MutableMap<String, ImageBitmap> =
-    object : LinkedHashMap<String, ImageBitmap>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ImageBitmap>?): Boolean =
-            size > 8
+private const val BgCacheBytes = 32 * 1024 * 1024
+
+private val bgCache: LruCache<String, ImageBitmap> =
+    object : LruCache<String, ImageBitmap>(BgCacheBytes) {
+        override fun sizeOf(key: String, value: ImageBitmap): Int = value.width * value.height * 4
     }
 
-private fun decodeBg(resolver: ContentResolver, source: String): ImageBitmap? {
+// A source is decoded at more than one ceiling (full screen vs a 132dp tile),
+// so the cache key carries the ceiling.
+private fun bgCacheKey(source: String, maxSide: Int): String = "$maxSide|$source"
+
+private fun dropCachedBitmaps(source: String) {
+    synchronized(bgCache) {
+        bgCache.snapshot().keys.filter { it.endsWith("|$source") }.forEach { bgCache.remove(it) }
+    }
+}
+
+// Drops the decoded copies of a source whose file was replaced on disk and
+// bumps the revision the composition keys read, so the active background
+// re-decodes instead of keeping the stale bitmap.
+internal val backgroundRevision = mutableStateOf(0)
+
+internal fun invalidateBackgroundCaches(source: String) {
+    dropCachedBitmaps(source)
+    backgroundRevision.value++
+}
+
+private fun decodeBg(resolver: ContentResolver, source: String, maxSide: Int): ImageBitmap? {
     return try {
         val probe = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         openBgStream(resolver, source)?.use { BitmapFactory.decodeStream(it, null, probe) }
-        val maxSide = 1080
         var sample = 1
         while (probe.outWidth / sample > maxSide || probe.outHeight / sample > maxSide) {
             sample *= 2
@@ -298,22 +345,26 @@ private fun openBgStream(resolver: ContentResolver, source: String) = try {
 // Null while loading or on any decode failure — callers fall back to the
 // flat palette, never crash on a bad file or dead link.
 @Composable
-fun rememberBackgroundBitmap(source: String?): ImageBitmap? {
+fun rememberBackgroundBitmap(source: String?, maxSide: Int = BG_STORE_SIDE): ImageBitmap? {
     val resolver = LocalContext.current.contentResolver
-    var bitmap by remember(source) { mutableStateOf(source?.let { synchronized(bgCache) { bgCache[it] } }) }
-    LaunchedEffect(source) {
-        if (source == null) {
+    val revision = backgroundRevision.value
+    val key = source?.let { bgCacheKey(it, maxSide) }
+    var bitmap by remember(key, revision) {
+        mutableStateOf(key?.let { synchronized(bgCache) { bgCache.get(it) } })
+    }
+    LaunchedEffect(key, revision) {
+        if (source == null || key == null) {
             bitmap = null
             return@LaunchedEffect
         }
-        val cached = synchronized(bgCache) { bgCache[source] }
+        val cached = synchronized(bgCache) { bgCache.get(key) }
         if (cached != null) {
             bitmap = cached
             return@LaunchedEffect
         }
-        val decoded = withContext(Dispatchers.IO) { decodeBg(resolver, source) }
+        val decoded = withContext(Dispatchers.IO) { decodeBg(resolver, source, maxSide) }
         if (decoded != null) {
-            synchronized(bgCache) { bgCache[source] = decoded }
+            synchronized(bgCache) { bgCache.put(key, decoded) }
         }
         bitmap = decoded
     }

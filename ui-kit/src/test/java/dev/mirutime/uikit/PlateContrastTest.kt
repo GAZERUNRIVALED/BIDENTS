@@ -7,7 +7,7 @@ import org.junit.Test
 
 // Guards the photo plate alpha: a narrower plate lets the picture through and
 // must not drop the light reading ink below the WCAG body floor (4.5:1) in the
-// worst case (the plate composited over a white photo).
+// worst case (the plate composited over the post-veil ceiling of the photo).
 class PlateContrastTest {
 
     private fun luminance(color: Color): Double {
@@ -36,7 +36,7 @@ class PlateContrastTest {
             Color(0xFF2C4A44),
         )
         val backdrops = plateBackdrops(surfaces, PlateAlpha)
-        // Each plate is checked over black and over white.
+        // Each plate is checked over black and over the post-veil ceiling.
         assertEquals(surfaces.size * 2, backdrops.size)
         val ink = Color(0xFFF0F5F4)
         backdrops.forEach { backdrop ->

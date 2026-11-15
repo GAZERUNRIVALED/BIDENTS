@@ -11,9 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.graphics.ColorUtils
 import androidx.palette.graphics.Palette
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
@@ -25,32 +23,12 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-// Derived colors from the custom background image. Null means "no usable
-// swatch" — callers fall back to the Night palette, never crash.
-// The accent seed drives the primary/accent roles; the surface family is
-// derived separately from the dark/muted swatches (nullable: each role
-// falls back to its Night value when its swatch is missing or bad).
+// What a custom background image contributes to the theme. Null means "no
+// usable swatch" — callers fall back to the Night palette, never crash.
+// Only two things travel: the accent seed (its hue re-tints every role) and
+// the per-band veil (how hard the picture has to be pressed where chrome sits).
 data class BgPalette(
     val accent: Color,
-    val onAccent: Color,
-    val primary: Color,
-    val onPrimary: Color,
-    val primaryContainer: Color,
-    val onPrimaryContainer: Color,
-    val muted: Color,
-    val surface: Color? = null,
-    val onSurface: Color? = null,
-    val surfaceVariant: Color? = null,
-    val onSurfaceVariant: Color? = null,
-    val surfaceContainerHigh: Color? = null,
-    val outline: Color? = null,
-    // Average luma (0..255, 0.299R+0.587G+0.114B) of the top/middle/bottom
-    // thirds of the decoded image — measured once per decode here, so
-    // bare-text ink, veils and chip backings adapt per strip with zero
-    // per-frame work. 0 (darkest) when unmeasured.
-    val topLum: Float = 0f,
-    val midLum: Float = 0f,
-    val bottomLum: Float = 0f,
     // Black veil alpha per horizontal band of the SCREEN (top→bottom), sized
     // so the brightest 10% of the band's pixels are pressed to gray ≤100/255:
     // light ink then holds ≥4.5:1 over the photo anywhere. Measured once per
@@ -58,22 +36,19 @@ data class BgPalette(
     val veilBands: List<Float> = List(BgBands) { 0.30f },
 )
 
-// Separate 128px Coil request (software bitmap for Palette) + in-memory
-// LruCache for ~12 backgrounds. The gate uses the app's own readable text
-// color (textOn) with a 3.0 floor — Palette's titleTextColor is never drawn
-// anywhere, so gating on it killed good swatches for nothing.
+// Separate 256px Coil request (software bitmap for Palette) + in-memory
+// LruCache for ~12 backgrounds. The seed swatch is ungated: readability is
+// enforced downstream by ensureContrastOn in the theme builder.
 private const val PaletteSize = 256
-private const val MinContrast = 3.0
-private const val LuminanceSplit = 0.179
 private const val PaletteCacheSize = 12
 
 const val BgBands = 8
 // Light ink (white / 90% white) holds ≥4.5:1 over sRGB gray ≤ ~100.
 private const val InkMaxLuma = 100f
 private const val MinVeil = 0.28f
-private const val MaxVeil = 0.64f
 // The photo is drawn ContentScale.Crop on a portrait-locked phone: only the
-// central slice of a wide image is ever visible, so only that slice counts.
+// central slice of a wide (or tall) image is ever visible, so both crop axes
+// are modelled and only that slice counts.
 private const val ScreenAspect = 0.46f
 
 private val paletteCache: LruCache<String, BgPalette?> = LruCache(PaletteCacheSize)
@@ -81,17 +56,13 @@ private val paletteCache: LruCache<String, BgPalette?> = LruCache(PaletteCacheSi
 // get their own bounded cache instead of re-decoding on every process.
 private val paletteMiss: LruCache<String, Boolean> = LruCache(PaletteCacheSize)
 
-private fun textOn(rgb: Int): Int {
-    val dark = Color(0xFF171916).toArgb()
-    val white = Color(0xFFFFFFFF).toArgb()
-    return if (ColorUtils.calculateLuminance(rgb) > LuminanceSplit) dark else white
-}
+// Bumped when a source's file is replaced on disk. Composition keys carry it,
+// so an already-composed background reloads instead of keeping the stale copy.
+val bgPaletteRevision = mutableStateOf(0)
 
 private fun pickSwatch(palette: Palette): Palette.Swatch? {
-    // Vibrant family first at equal gate-passing: population-first picked the
-    // dominant muted swatch and stylized art (large dull fields over saturated
-    // subjects, bg4/bg6) lost its signature hue to gray-brown. Muted is only
-    // the fallback when no vibrant swatch clears the readable-text gate.
+    // Vibrant family first by population: stylized art keeps its signature hue.
+    // Fall back to dominant or muted if no vibrant swatch was extracted.
     val vibrant = listOfNotNull(
         palette.vibrantSwatch,
         palette.darkVibrantSwatch,
@@ -102,14 +73,12 @@ private fun pickSwatch(palette: Palette): Palette.Swatch? {
         palette.darkMutedSwatch,
         palette.lightMutedSwatch,
     )
-    val gate = { swatch: Palette.Swatch ->
-        ColorUtils.calculateContrast(textOn(swatch.rgb), swatch.rgb) >= MinContrast
-    }
-    return vibrant.sortedByDescending { it.population }.firstOrNull(gate)
-        ?: muted.sortedByDescending { it.population }.firstOrNull(gate)
+    return vibrant.maxByOrNull { it.population }
+        ?: palette.dominantSwatch
+        ?: muted.maxByOrNull { it.population }
 }
 
-private class BandStats(val p90: FloatArray, val veil: FloatArray)
+private class BandStats(val veil: FloatArray)
 
 // 90th-percentile luma (perceptual weights) of each horizontal band of the
 // VISIBLE crop, plus the black-veil alpha that presses it to InkMaxLuma.
@@ -117,19 +86,20 @@ private class BandStats(val p90: FloatArray, val veil: FloatArray)
 private fun measureBands(bitmap: Bitmap): BandStats {
     val w = bitmap.width
     val h = bitmap.height
-    val p90 = FloatArray(BgBands)
     val veil = FloatArray(BgBands) { MinVeil }
-    if (w <= 0 || h <= 0) return BandStats(p90, veil)
+    if (w <= 0 || h <= 0) return BandStats(veil)
     val aspect = w.toFloat() / h
     val visibleW = if (aspect > ScreenAspect) (w * ScreenAspect / aspect).toInt().coerceIn(1, w) else w
     val x0 = (w - visibleW) / 2
+    val visibleH = if (aspect < ScreenAspect) (h * aspect / ScreenAspect).toInt().coerceIn(1, h) else h
+    val yTop = (h - visibleH) / 2
     val pixels = IntArray(w * h)
     bitmap.getPixels(pixels, 0, w, 0, 0, w, h)
     val hist = IntArray(256)
     for (band in 0 until BgBands) {
         java.util.Arrays.fill(hist, 0)
-        val y0 = h * band / BgBands
-        val y1 = (h * (band + 1) / BgBands).coerceIn(y0 + 1, h)
+        val y0 = yTop + visibleH * band / BgBands
+        val y1 = (yTop + visibleH * (band + 1) / BgBands).coerceIn(y0 + 1, yTop + visibleH)
         var count = 0
         var y = y0
         while (y < y1) {
@@ -151,15 +121,16 @@ private fun measureBands(bitmap: Bitmap): BandStats {
             acc += hist[level]
             level++
         }
-        p90[band] = level.toFloat()
-        veil[band] = if (level <= InkMaxLuma) MinVeil else (1f - InkMaxLuma / level).coerceIn(MinVeil, MaxVeil)
+        // Ceiling of the veil is 1 - InkMaxLuma/255 (0.608 at 255): brighter than
+        // that never needs more.
+        veil[band] = if (level <= InkMaxLuma) MinVeil else (1f - InkMaxLuma / level).coerceAtLeast(MinVeil)
     }
     // Bands bleed into each other under text that straddles a border: take
     // the stronger of own / 90% of neighbours.
     val smoothed = FloatArray(BgBands) { i ->
         maxOf(veil[i], veil.getOrElse(i - 1) { 0f } * 0.9f, veil.getOrElse(i + 1) { 0f } * 0.9f)
     }
-    return BandStats(p90, smoothed)
+    return BandStats(smoothed)
 }
 
 private suspend fun loadBgPalette(context: Context, source: String): BgPalette? {
@@ -186,48 +157,19 @@ private suspend fun loadBgPalette(context: Context, source: String): BgPalette? 
             .build()
         val result = withContext(Dispatchers.IO) { loader.execute(request) }
         val bitmap = (result as? SuccessResult)?.image?.toBitmap() ?: return failed()
-        val palette = withContext(Dispatchers.Default) {
-            Palette.from(bitmap).maximumColorCount(16).generate()
+        val (palette, bands) = withContext(Dispatchers.Default) {
+            Palette.from(bitmap).maximumColorCount(16).generate() to measureBands(bitmap)
         }
         // Band measurement rides the same decode and ALWAYS succeeds for a
         // decodable picture: a bad swatch no longer drops the veil rule.
-        val bands = measureBands(bitmap)
-        fun peak(from: Int, to: Int) = (from until to).maxOf { bands.p90[it] }
-        val topLum = peak(0, 3)
-        val midLum = peak(2, 6)
-        val bottomLum = peak(5, BgBands)
-        // Seed: vibrant swatch that passes the gate, else any dominant one,
-        // else the Night accent. Final readability is enforced downstream in
+        // Seed: most populated vibrant swatch, else dominant/muted, else the
+        // Night accent. Ungated — final readability is enforced downstream in
         // the theme builder (ensureContrastOn), not here.
-        val swatch = pickSwatch(palette) ?: palette.dominantSwatch
+        val swatch = pickSwatch(palette)
         val rgb = swatch?.rgb ?: 0xFFB2BCA8.toInt()
-        val onColor = Color(textOn(rgb))
-        val containerRgb = swatch?.bodyTextColor ?: rgb
-        val onContainer = Color(textOn(containerRgb))
-        // Hue sources for the plate family (darkest tones of the picture).
-        val dark = palette.darkMutedSwatch ?: palette.darkVibrantSwatch
-        val mut = palette.mutedSwatch
-        val highBase = dark?.rgb ?: mut?.rgb
         val derived = BgPalette(
-            topLum = topLum,
-            midLum = midLum,
-            bottomLum = bottomLum,
-            veilBands = bands.veil.toList(),
             accent = Color(rgb),
-            onAccent = onColor,
-            primary = Color(rgb),
-            onPrimary = onColor,
-            primaryContainer = Color(containerRgb),
-            onPrimaryContainer = onContainer,
-            muted = Color(containerRgb),
-            surface = dark?.rgb?.let { Color(it) },
-            onSurface = dark?.rgb?.let { Color(textOn(it)) },
-            surfaceVariant = mut?.rgb?.let { Color(it) },
-            onSurfaceVariant = mut?.rgb?.let { Color(textOn(it)) },
-            surfaceContainerHigh = highBase?.let {
-                Color(ColorUtils.blendARGB(it, 0xFFFFFFFF.toInt(), 0.18f))
-            },
-            outline = dark?.titleTextColor?.let { Color(it).copy(alpha = 0.4f) },
+            veilBands = bands.veil.toList(),
         )
         synchronized(paletteCache) { paletteCache.put(source, derived) }
         derived
@@ -236,11 +178,22 @@ private suspend fun loadBgPalette(context: Context, source: String): BgPalette? 
     }
 }
 
+// Drops the measured palette of a source whose file was replaced on disk and
+// makes the already-composed readers reload it.
+fun invalidateBgPaletteCache(source: String) {
+    synchronized(paletteCache) { paletteCache.remove(source) }
+    synchronized(paletteMiss) { paletteMiss.remove(source) }
+    bgPaletteRevision.value++
+}
+
 @Composable
 fun rememberBgPalette(source: String?): BgPalette? {
     val context = LocalContext.current.applicationContext
-    var palette by remember(source) { mutableStateOf(source?.let { synchronized(paletteCache) { paletteCache[it] } }) }
-    LaunchedEffect(source) {
+    val revision = bgPaletteRevision.value
+    var palette by remember(source, revision) {
+        mutableStateOf(source?.let { synchronized(paletteCache) { paletteCache[it] } })
+    }
+    LaunchedEffect(source, revision) {
         if (source == null) {
             palette = null
             return@LaunchedEffect

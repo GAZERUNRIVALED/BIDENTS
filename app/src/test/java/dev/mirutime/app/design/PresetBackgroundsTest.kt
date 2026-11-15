@@ -221,6 +221,23 @@ class PresetBackgroundsTest {
         assertEquals(false, ru.contains("name=\"theme_preset_item_fmt\">Фон"))
     }
 
+    @Test
+    fun `presetTempFile creates the missing parent directory`() {
+        val root = Files.createTempDirectory("preset-temp").toFile()
+        try {
+            val target = File(File(root, "missing"), "1_Backgrounds.jpeg")
+            assertFalse(target.parentFile?.exists() == true)
+
+            val tmp = presetTempFile(target)
+
+            assertTrue(target.parentFile?.isDirectory == true)
+            assertEquals("1_Backgrounds.jpeg.tmp", tmp.name)
+            assertEquals(target.parentFile, tmp.parentFile)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     private fun tempFile(content: ByteArray): File =
         Files.createTempFile("preset", ".jpeg").toFile().apply {
             writeBytes(content)

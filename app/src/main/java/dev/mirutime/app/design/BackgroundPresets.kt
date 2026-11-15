@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import dev.mirutime.app.di.host.AndroidSystemInfo
 import dev.mirutime.core.log.MiruLog
+import dev.mirutime.uikit.invalidateBgPaletteCache
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
@@ -308,7 +309,14 @@ private fun migrateLegacyPresetDir(context: Context) {
 }
 
 internal fun presetFile(context: Context, preset: PresetBackground) =
-    File(presetBgDir(context).apply { mkdirs() }, preset.name.replace(Regex("[^A-Za-z0-9._-]"), "_"))
+    File(presetBgDir(context), preset.name.replace(Regex("[^A-Za-z0-9._-]"), "_"))
+
+// Downloads write to a sibling temp file; create the parent here so a fresh
+// install (no directory yet) can save its first preset.
+internal fun presetTempFile(target: File): File {
+    target.parentFile?.mkdirs()
+    return File(target.parentFile, target.name + ".tmp")
+}
 
 // JPEG / PNG / WebP magic bytes. A valid signature is enough to treat a cached
 // file as a picture; a full decode per preset on Refresh would cost more than
@@ -414,7 +422,7 @@ private suspend fun downloadPresetFile(
     preset: PresetBackground,
     target: File,
 ): File? {
-    val tmp = File(target.parentFile, target.name + ".tmp")
+    val tmp = presetTempFile(target)
     return try {
         val conn = httpOpen(preset.url)
         if (conn.responseCode != 200) {
@@ -439,6 +447,8 @@ private suspend fun downloadPresetFile(
                 }
             }
             if (tmp.renameTo(target)) {
+                // A replaced picture invalidates everything decoded from it.
+                invalidatePresetCaches(target.absolutePath)
                 MiruLog.event("theme", "preset_download", "ok" to true)
                 target
             } else {
@@ -463,6 +473,17 @@ private suspend fun downloadPresetFile(
 class CachedPresetPreview(val thumb: ImageBitmap, val savedPath: String)
 
 private val cachedPreviewCache = mutableMapOf<String, CachedPresetPreview>()
+
+// A preset file that was (re)written invalidates every cache keyed by its path:
+// the tile thumb (keyed by URL, holding the path) and the decoded/measured
+// copies downstream.
+internal fun invalidatePresetCaches(path: String) {
+    synchronized(cachedPreviewCache) {
+        cachedPreviewCache.entries.removeAll { it.value.savedPath == path }
+    }
+    invalidateBackgroundCaches(path)
+    invalidateBgPaletteCache(path)
+}
 
 @Composable
 fun rememberCachedPresetPreview(

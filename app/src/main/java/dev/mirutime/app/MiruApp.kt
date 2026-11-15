@@ -15,6 +15,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import dev.mirutime.app.core.AndroidCoverDecoder
 import dev.mirutime.app.core.RecoverySweeper
+import dev.mirutime.app.design.ViewStateStore
 import dev.mirutime.core.log.CrashReporter
 import dev.mirutime.core.log.MiruFileLogger
 import dev.mirutime.core.log.MiruLog
@@ -674,6 +675,8 @@ class MiruApp : Application(), SingletonImageLoader.Factory {
         runBlocking(Dispatchers.IO) {
             MiruFileLogger.install(this@MiruApp)
             PluginBookIndex.attach(this@MiruApp)
+            ViewStateStore.init(this@MiruApp)
+            dev.mirutime.app.design.presetBgDir(this@MiruApp)
         }
         CrashReporter.install()
         MiruLog.i("app", startupMarker())
@@ -713,6 +716,7 @@ class MiruApp : Application(), SingletonImageLoader.Factory {
         startSettingsPersistence()
         registerNetworkRetry()
         appScope.launch {
+            logHistoricalExitReasons()
             // Each step is independent: one recoverable failure must not skip
             // download reconciliation or translation re-arm for the session.
             suspend fun step(event: String, block: suspend () -> Unit) {
@@ -793,6 +797,48 @@ class MiruApp : Application(), SingletonImageLoader.Factory {
      */
     suspend fun probeLibraryDatabase() {
         libraryRepository.bookCount()
+    }
+
+    private fun logHistoricalExitReasons() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val prefs = ViewStateStore.get(this)
+            try {
+                // Only exits logged once: repeating the same rows on every cold
+                // start floods the support log and explains nothing.
+                val lastLogged = prefs.getLong(EXIT_REASONS_LOGGED_AT, 0L)
+                val am = getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+                val reasons = am?.getHistoricalProcessExitReasons(packageName, 0, 5).orEmpty()
+                    .filter { it.timestamp > lastLogged }
+                var newest = lastLogged
+                for (reason in reasons) {
+                    if (reason.timestamp > newest) newest = reason.timestamp
+                    val sanitized = reason.description.orEmpty()
+                        .replace(Regex("https?://[^\\s]+"), "[url]")
+                        .replace(Regex("content://[^\\s]+"), "[content_uri]")
+                        // Two segments minimum and a word boundary so dates and
+                        // fractions ("12/05/2026", "5/10") survive intact.
+                        .replace(
+                            Regex("(?<![\\w.])(?:[A-Za-z]:)?/(?:[\\w.~-]+/)+[\\w.~-]+"),
+                            "[path]",
+                        )
+                        .replace(Regex("[A-Za-z]:\\\\[^\\s]+"), "[path]")
+                    val desc = sanitized.ifBlank { "none" }
+                    MiruLog.event(
+                        "app",
+                        "exit_info",
+                        "reason" to reason.reason,
+                        "status" to reason.status,
+                        "importance" to reason.importance,
+                        "time" to reason.timestamp,
+                        "desc" to desc,
+                    )
+                }
+                if (newest > lastLogged) prefs.edit().putLong(EXIT_REASONS_LOGGED_AT, newest).apply()
+            } catch (e: Exception) {
+                // Must not fail startup.
+                MiruLog.w("app", "event=exit_info_failed", e)
+            }
+        }
     }
 
     // Stable grep marker for support: app version and device in one line.
@@ -947,6 +993,9 @@ private const val MAX_COVER_BACKFILL = 30
 // long enough to collapse a slider drag or a multi-field pair edit into one
 // SharedPreferences commit.
 private const val SETTINGS_DEBOUNCE_MS = 400L
+
+// Timestamp of the newest process exit already written to the support log.
+private const val EXIT_REASONS_LOGGED_AT = "app.exit_reasons_logged_at"
 
 // StrictMode allowlist: activity-level preference writes predate the reader
 // scopes and are tracked separately; new stacks must not be added here.

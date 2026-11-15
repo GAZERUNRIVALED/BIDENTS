@@ -74,6 +74,7 @@ import dev.mirutime.app.design.rememberCachedPresetPreview
 import dev.mirutime.uikit.MiruTheme
 import dev.mirutime.uikit.ThemeMode
 import dev.mirutime.app.design.importBackground
+import dev.mirutime.app.design.invalidatePresetCaches
 import dev.mirutime.app.design.rememberBackgroundBitmap
 import dev.mirutime.uikit.title
 import kotlinx.coroutines.launch
@@ -259,6 +260,9 @@ fun ThemePickerRails(
                                 val local = applyPreset(context, preset)
                                 importingUrl = null
                                 if (local != null) {
+                                    // The file may have just been (re)written: drop
+                                    // the stale decodes before the revision bump.
+                                    invalidatePresetCaches(local)
                                     previewRevision++
                                     onCustomBg(local)
                                     onSelect(ThemeMode.Custom)
@@ -519,7 +523,8 @@ private fun BackgroundTile(
     onRemove: () -> Unit,
 ) {
     val ring = LocalMiruExtraColors.current.accent
-    val bitmap = rememberBackgroundBitmap(source)
+    // A 132dp tile never needs the full-screen decode.
+    val bitmap = rememberBackgroundBitmap(source, maxSide = 512)
     Column(
         modifier = Modifier
             .width(132.dp)

@@ -75,9 +75,11 @@ fun Color.ensureContrastOn(backdrop: Color, floor: Double = ContrastFloor.Body):
     ensureContrastOn(listOf(backdrop), floor)
 
 // Worst-case opaque stand-ins for a translucent plate drawn over an unknown
-// photo: the plate over pure black and over pure white.
+// photo: the plate over pure black and over the post-veil ceiling of the photo.
+// BgPalette sizes the veil from each band's p90, so a specular pixel inside a
+// band that only got MinVeil survives at 255 * (1 - MinVeil) = 183.6 → 0xFFB8B8B8.
 fun plateBackdrops(plates: List<Color>, alpha: Float): List<Color> =
     plates.flatMap { plate ->
         val translucent = plate.copy(alpha = alpha)
-        listOf(translucent.compositedOver(Color.Black), translucent.compositedOver(Color.White))
+        listOf(translucent.compositedOver(Color.Black), translucent.compositedOver(Color(0xFFB8B8B8)))
     }

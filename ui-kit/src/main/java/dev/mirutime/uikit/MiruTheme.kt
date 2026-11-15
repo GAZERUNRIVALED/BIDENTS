@@ -101,10 +101,10 @@ data class MiruExtraColors(
     val onScrim: Color,
     val scrimMuted: Color,
     val pillBg: Color,
-    // Photo-zone ink roles (custom background only): measured strip luma
-    // decides dark-#1C1B1F vs white, mirrored in veil, shadow and chip
-    // backings. Mid rides the thin global veil (0.30). Defaults = the
-    // dark-strip language classic constructors had.
+    // Photo-zone ink roles (custom background only): the per-band veil presses
+    // each strip until white ink holds, so the zone only carries ink, soft ink
+    // and the text shadow. Defaults = the dark-strip language classic
+    // constructors had.
     val photoTop: PhotoZoneInk = DarkPhotoZone,
     val photoMid: PhotoZoneInk = DarkPhotoZone,
     val photoBottom: PhotoZoneInk = DarkPhotoZone,
@@ -120,94 +120,35 @@ private val CardOnScrim = Color(0xFFFFFFFF)
 private val CardScrimMuted = Color(0xFFC9C6BD)
 private val CardPillBg = Color(0xFF000000).copy(alpha = 0.45f)
 
-// === Photo zones: adaptive ink per strip, measured once at decode ===
-// BgPalette strips the top/mid/bottom thirds of the picture (luma 0..255).
-// Rule (Sawyer/Spotify/HIG): bright strip (>128) → dark ink #1C1B1F + a
-// LIGHT edge veil; dark strip → white ink + the black veil. The text shadow
-// follows the ink (a black halo on bright art would read as dirt).
-private const val PhotoBrightThreshold = 128f
-private const val PillContrastFloor = 4.5
-private val PhotoDarkInk = Color(0xFF1C1B1F)
-
+// === Photo zones: ink per strip over a custom background image ===
+// BgPalette presses each band with its own black veil (light ink holds 4.5:1
+// over the post-veil strip), so the ink is always white and only the veil
+// adapts — no per-band token is derived.
 @Immutable
 data class PhotoZoneInk(
-    // True when the strip is bright: veil turns white, ink turns #1C1B1F.
-    val bright: Boolean,
     // Strong ink for bare titles/values on the photo.
     val ink: Color,
     // Softened ink for descriptors (muted layer of the same language).
     val soft: Color,
-    // Ghost/dim pill backing (with alpha) that holds the 4.5 floor over
-    // the post-veil strip gray — dark family on dark strips, light on bright.
-    val pillBackdrop: Color,
-    // Ink guaranteed against pillBackdrop at the strip's post-veil gray.
+    // Ink that holds the 4.5 floor over the post-veil strip gray.
     val pillInk: Color,
-    // Hairline border for ghost pills (white-ish on dark strips, dark on bright).
-    val pillBorder: Color,
-    // Text shadow for the strip: black on dark, light (not black) on bright.
+    // Text shadow for the strip: black, so light ink stays readable.
     val shadow: Shadow,
 )
 
-// Post-veil strip gray (0..255 luma → color): white veil lifts toward
-// white, black veil presses toward black.
-private fun grayAt(luma: Float): Color {
-    val v = luma.coerceIn(0f, 255f) / 255f
-    return Color(red = v, green = v, blue = v, alpha = 1f)
-}
-
-// Builds one zone: picks ink by the measured luma, then densifies the pill
-// backing (+0.10 alpha, cap 0.92) until edge ink holds 4.5 over the
-// post-veil gray. Done once per palette — never per frame.
-private fun buildPhotoZone(
-    luma: Float,
-    veilAlpha: Float,
-    darkBacking: Color?, // dynamic surfaceContainerHigh (photo-derived dark family)
-): PhotoZoneInk {
-    // Light ink only: the per-band veil (BgPalette.veilBands) presses every
-    // band until white ink holds 4.5:1, so dark-ink flipping is retired —
-    // it was the source of dark text on dark cards.
-    val bright = false
-    // Pills composite over photo∧veil: representative veil alpha of the row,
-    // so the check runs against the post-veil strip gray.
-    val post = if (bright) {
-        luma * (1 - veilAlpha) + 255f * veilAlpha
-    } else {
-        luma * (1 - veilAlpha)
-    }
-    val postVeil = grayAt(post)
-    val ink = if (bright) PhotoDarkInk else Color(0xFFFFFFFF)
-    var pill = if (bright) {
-        Color(0xFFFFFFFF).copy(alpha = 0.50f)
-    } else {
-        (darkBacking ?: Color(0xFF000000)).copy(alpha = 0.55f)
-    }
-    for (i in 0 until 5) {
-        if (contrastRatio(ink, pill.compositedOver(postVeil)) >= PillContrastFloor) break
-        pill = pill.copy(alpha = (pill.alpha + 0.10f).coerceAtMost(0.92f))
-    }
-    return PhotoZoneInk(
-        bright = bright,
-        ink = ink,
-        soft = if (bright) PhotoDarkInk.copy(alpha = 0.75f) else Color(0xFFFFFFFF).copy(alpha = 0.90f),
-        pillBackdrop = pill,
-        pillInk = ink,
-        pillBorder = if (bright) {
-            Color(0xFF000000).copy(alpha = 0.18f)
-        } else {
-            Color(0xFFFFFFFF).copy(alpha = 0.35f)
-        },
-        shadow = Shadow(
-            color = if (bright) Color(0xFFFFFFFF).copy(alpha = 0.45f) else Color(0xFF000000).copy(alpha = 0.85f),
-            offset = Offset(0f, 2f),
-            blurRadius = 10f,
-        ),
-    )
-}
-
-// Default zone = dark-strip language (white ink, black family pills) — the
-// look custom themes had before measurement, so failed/no-palette decodes
-// and every classic-theme constructor stay put.
-private val DarkPhotoZone = buildPhotoZone(luma = 60f, veilAlpha = 0.45f, darkBacking = null)
+// Default zone = dark-strip language (white ink) — the look custom themes had
+// before measurement, so failed/no-palette decodes and every classic-theme
+// constructor stay put.
+private val DarkPhotoZone = PhotoZoneInk(
+    ink = Color(0xFFFFFFFF),
+    soft = Color(0xFFFFFFFF).copy(alpha = 0.90f),
+    pillInk = Color(0xFFFFFFFF),
+    shadow = Shadow(
+        color = Color(0xFF000000).copy(alpha = 0.85f),
+        offset = Offset(0f, 2f),
+        blurRadius = 10f,
+    ),
+)
 
 // Custom-image chrome: no solid bars — a veil behind the app header so the
 // picture breathes; the mid-screen veil stays thin (0.30).
@@ -219,8 +160,6 @@ private val DarkPhotoZone = buildPhotoZone(luma = 60f, veilAlpha = 0.45f, darkBa
 // status bar + 6dp + plate + 6dp, so the plate bottom sits at ~92..95% of
 // it) — scrolled text is erased, not dimmed. Only the tail (last 8%) eases
 // out below the plate as a soft apron, never a hard band.
-// Bright strips flip the SAME ramp to a white layer instead of pressing
-// further with black; light-on-light needs the opposite direction.
 private val DarkTopVeil = Brush.verticalGradient(
     0f to Color(0xFF000000).copy(alpha = 0.92f),
     0.92f to Color(0xFF000000).copy(alpha = 0.92f),
@@ -228,20 +167,13 @@ private val DarkTopVeil = Brush.verticalGradient(
     0.985f to Color(0xFF000000).copy(alpha = 0.10f),
     1f to Color.Transparent,
 )
-private val LightTopVeil = Brush.verticalGradient(
-    0f to Color(0xFFFFFFFF).copy(alpha = 0.92f),
-    0.92f to Color(0xFFFFFFFF).copy(alpha = 0.92f),
-    0.955f to Color(0xFFFFFFFF).copy(alpha = 0.45f),
-    0.985f to Color(0xFFFFFFFF).copy(alpha = 0.10f),
-    1f to Color.Transparent,
-)
 private const val BgVeilAlpha = 0.30f
 
 // Top chrome veil (shell): page content sliding under the header fades out
 // instead of reading raw in the status-bar strip. On a photo the high
-// plateau (dark or light by the top strip's luma) holds to the plate bottom
-// and eases out in the tail; on classic themes the same shape in the flat
-// background ink — invisible against the page.
+// plateau holds to the plate bottom and eases out in the tail; on classic
+// themes the same shape in the flat background ink — invisible against the
+// page.
 @Composable
 fun miruTopVeilBrush(opaque: Boolean = false): Brush =
     when {
@@ -255,14 +187,13 @@ fun miruTopVeilBrush(opaque: Boolean = false): Brush =
                 1f to Color.Transparent,
             )
         }
-        LocalMiruExtraColors.current.photoTop.bright -> LightTopVeil
         else -> DarkTopVeil
     }
 
 enum class MiruPhotoZone { Top, Mid, Bottom }
 
-// Drop shadow for bare text on the photo, per zone: black halo on dark
-// strips, light (not black) on bright. No-op on classic themes.
+// Drop shadow for bare text on the photo, per zone: a black halo, so light
+// ink stays readable. No-op on classic themes.
 @Composable
 fun TextStyle.withImageShadow(zone: MiruPhotoZone = MiruPhotoZone.Top): TextStyle {
     if (!LocalMiruOnImage.current) return this
@@ -277,9 +208,9 @@ private fun photoZone(zone: MiruPhotoZone): PhotoZoneInk = when (zone) {
     MiruPhotoZone.Bottom -> LocalMiruExtraColors.current.photoBottom
 }
 
-// Muted ink for bare text on the photo: adaptive per strip (dark ink on
-// bright art, near-white on dark). Texts inside cards keep the theme muted—
-// this is only for naked photo text.
+// Muted ink for bare text on the photo: softened per strip, always the
+// light family. Texts inside cards keep the theme muted — this is only for
+// naked photo text.
 @Composable
 fun miruPhotoMuted(zone: MiruPhotoZone = MiruPhotoZone.Top): Color =
     if (LocalMiruOnImage.current) {
@@ -1028,38 +959,39 @@ private data class ThemeColors(val scheme: ColorScheme, val extra: MiruExtraColo
 
 // === Photo theme: derived from the picture, verified against the plates ===
 // Photo theme contrast rules:
-//  1. Plates are ALWAYS dark: hue from the picture's dark swatch, saturation
-//     clamped 0.10–0.30, lightness on a fixed ladder (0.09 … 0.34). They can
-//     never become mid-tones where neither white nor black ink works.
+//  1. Plates are ALWAYS dark: hue from the picture's accent swatch, saturation
+//     clamped 0.12–0.45, lightness on a fixed ladder (0.08 / 0.13 / 0.16 /
+//     0.22 / 0.27). They can never become mid-tones where neither white nor
+//     black ink works.
 //  2. Every ink/accent is generated from hue + lightness and then passed
-//     through ensureContrastOn() against all plates, worst-case over black
-//     and white photo: ink 7:1, muted/primary/error 4.5:1.
+//     through ensureContrastOn() against all plates via plateBackdrops() —
+//     worst case over black photo AND the post-veil ceiling: ink 7:1,
+//     muted/primary/error 4.5:1.
 //  3. Accent fills double as text (links, "Open"), so they are held to the
 //     TEXT floor, not the graphics floor.
 //  4. onX colors are chosen by contrastInkFor against their own fill.
 private fun photoThemeColors(p: BgPalette): ThemeColors {
-    val seed = (p.surface ?: p.surfaceVariant ?: p.accent).toHsl()
-    val hue = seed[0]
-    val tint = seed[1].coerceIn(0.10f, 0.30f)
-    val background = hslColor(hue, tint, 0.09f)
-    val surface = hslColor(hue, tint, 0.14f)
-    val surfaceLow = hslColor(hue, tint, 0.18f)
-    val surfaceHigh = hslColor(hue, tint, 0.23f)
-    val surfaceHighest = hslColor(hue, tint, 0.28f)
-    val outlineVariant = hslColor(hue, tint, 0.28f)
-    val outline = hslColor(hue, tint, 0.36f)
+    val a = p.accent.toHsl()
+    val hue = a[0]
+    val tint = a[1].coerceIn(0.12f, 0.45f)
+    val background = hslColor(hue, tint, 0.08f)
+    val surface = hslColor(hue, tint, 0.13f)
+    val surfaceLow = hslColor(hue, tint, 0.16f)
+    val surfaceHigh = hslColor(hue, tint, 0.22f)
+    val surfaceHighest = hslColor(hue, tint, 0.27f)
+    val outlineVariant = hslColor(hue, tint, 0.31f)
+    val outline = hslColor(hue, tint, 0.38f)
     val backs = plateBackdrops(listOf(surface, surfaceLow, surfaceHigh, surfaceHighest), PlateAlpha)
 
-    val onSurface = hslColor(hue, 0.08f, 0.94f).ensureContrastOn(backs, ContrastFloor.Strong)
-    val onSurfaceVariant = hslColor(hue, 0.08f, 0.84f).ensureContrastOn(backs, ContrastFloor.Body)
+    val onSurface = hslColor(hue, 0.06f, 0.94f).ensureContrastOn(backs, ContrastFloor.Strong)
+    val onSurfaceVariant = hslColor(hue, 0.06f, 0.84f).ensureContrastOn(backs, ContrastFloor.Body)
     val muted = hslColor(hue, 0.06f, 0.74f).ensureContrastOn(backs, ContrastFloor.Body)
 
-    val a = p.accent.toHsl()
-    val accentSat = a[1].coerceIn(0.40f, 0.85f)
-    val primary = hslColor(a[0], accentSat, 0.70f).ensureContrastOn(backs, ContrastFloor.Body)
+    val accentSat = a[1].coerceIn(0.45f, 0.90f)
+    val primary = hslColor(hue, accentSat, 0.72f).ensureContrastOn(backs, ContrastFloor.Body)
     val onPrimary = contrastInkFor(primary, false, listOf(Color(0xFF171916)))
-    val primaryContainer = hslColor(a[0], accentSat.coerceAtMost(0.45f), 0.26f)
-    val onPrimaryContainer = hslColor(a[0], 0.55f, 0.88f)
+    val primaryContainer = hslColor(hue, (accentSat * 0.7f).coerceIn(0.20f, 0.50f), 0.24f)
+    val onPrimaryContainer = hslColor(hue, 0.50f, 0.90f)
         .ensureContrastOn(listOf(primaryContainer), ContrastFloor.Strong)
     val error = Color(0xFFDB8C7E).ensureContrastOn(backs, ContrastFloor.Body)
 
@@ -1084,17 +1016,11 @@ private fun photoThemeColors(p: BgPalette): ThemeColors {
         onSecondary = onPrimary,
         error = error,
     )
-    fun veilOf(from: Int, to: Int): Float =
-        p.veilBands.subList(from.coerceAtMost(p.veilBands.size), to.coerceAtMost(p.veilBands.size))
-            .maxOrNull() ?: BgVeilAlpha
     val extra = NightExtra.copy(
         accent = primary,
         onAccent = onPrimary,
         warm = primary,
         muted = muted,
-        photoTop = buildPhotoZone(p.topLum, veilOf(0, 3), surfaceHigh),
-        photoMid = buildPhotoZone(p.midLum, veilOf(2, 6), surfaceHigh),
-        photoBottom = buildPhotoZone(p.bottomLum, veilOf(5, BgBands), surfaceHigh),
     )
     return ThemeColors(scheme, extra)
 }
