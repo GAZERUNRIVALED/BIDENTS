@@ -26,14 +26,16 @@ import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.MiruTabPill
 
 // Shelves row: secondary scrollable tabs (M3 pattern) with a segmented-control
-// look — flat text tabs, the selected one on a soft accent pill, never chips.
-// Tap selects, long-press opens the shelf manager; the manage icon duplicates
-// that entry. No trailing "+" and no trash in the row (03-ui.md, 08-library.md).
+// look — flat text tabs, the selected ones on a soft accent pill, never chips.
+// "All" is the leading tab and means no shelf filter (empty selection); a tap
+// on a shelf toggles it, so several shelves can be active at once. Long-press
+// opens the shelf manager; the manage icon duplicates that entry.
 @Composable
 fun ShelfTabsRow(
     shelves: List<Shelf>,
-    selectedId: String,
-    onSelect: (String) -> Unit,
+    selectedIds: Set<String>,
+    onToggle: (String) -> Unit,
+    onSelectAll: () -> Unit,
     onManage: () -> Unit,
     onTabLongPress: (Shelf) -> Unit,
     modifier: Modifier = Modifier,
@@ -51,11 +53,16 @@ fun ShelfTabsRow(
                 horizontalArrangement = Arrangement.spacedBy(MiruSpace.Xxs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                MiruTabPill(
+                    label = stringResource(R.string.shelf_all),
+                    selected = selectedIds.isEmpty(),
+                    onClick = onSelectAll,
+                )
                 shelves.forEach { shelf ->
                     MiruTabPill(
                         label = shelfLabel(shelf),
-                        selected = shelf.id == selectedId,
-                        onClick = { onSelect(shelf.id) },
+                        selected = shelf.id in selectedIds,
+                        onClick = { onToggle(shelf.id) },
                         onLongClick = { onTabLongPress(shelf) },
                     )
                 }

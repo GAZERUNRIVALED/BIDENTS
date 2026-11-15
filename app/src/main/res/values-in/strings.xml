@@ -408,13 +408,9 @@
 
     <!-- Shelves -->
     <string name="shelf_title">Rak</string>
-    <string name="shelf_desc">Pilih rak untuk membukanya, atau kelola di bawah.</string>
-    <string name="shelf_section_view">Tampilan</string>
+    <string name="shelf_desc">Buat, ganti nama, urutkan, atau hapus rak.</string>
     <string name="shelf_section_manage">Kelola rak</string>
     <string name="shelf_new_btn">+ Rak baru</string>
-    <string name="shelf_mode_list">Daftar</string>
-    <string name="shelf_mode_nested">Bersarang</string>
-    <string name="shelf_mode_covers">Sampul</string>
     <string name="shelf_new_title">Rak baru</string>
     <string name="shelf_new_desc">Beri nama rak baru. Rak ikut pemeriksaan pembaruan otomatis kecuali dilewati di bawah.</string>
     <string name="shelf_edit_title">Ubah rak</string>

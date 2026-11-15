@@ -19,12 +19,9 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -55,7 +52,7 @@ import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.MiruSize
 import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.SettingsRadioRow
-import dev.mirutime.uikit.SettingsValueRow
+import dev.mirutime.uikit.SettingsSwitchRow
 import dev.mirutime.uikit.SheetSection
 import dev.mirutime.uikit.MiruTextField
 
@@ -94,7 +91,8 @@ private fun SortFilter(
     val draft = remember(filter.key, current) {
         mapOf<String, PluginFilterValue>(filter.key to current)
     }
-    SheetSection(title = filter.label, preserveCase = true) {
+    val currentLabel = filter.options.firstOrNull { it.value == current.value }?.label
+    SheetSection(title = filter.label, summary = currentLabel, preserveCase = true) {
         filter.options.forEach { option ->
             val selected = current.value == option.value
             Row(
@@ -149,14 +147,21 @@ private fun SelectFilter(
     onChange: (PluginFilterValue) -> Unit,
 ) {
     val current = (value as? PluginFilterValue.Select)?.value ?: filter.defaultValue
-    // <= 3 options: chips right in the section. More: a value row that
-    // expands the one-of-N list inline; never a second
-    // ModalBottomSheet on top of the filter sheet.
-    if (filter.options.size <= 3) {
-        SheetSection(title = filter.label, preserveCase = true) {
+    val currentLabel = filter.options.firstOrNull { it.value == current }?.label ?: current
+
+    // Summary on the section header shows the selected choice while collapsed.
+    // When expanded, choices are immediately visible and clickable — no nested
+    // second-tier accordion.
+    SheetSection(
+        title = filter.label,
+        summary = currentLabel,
+        preserveCase = true,
+    ) {
+        if (filter.options.size <= 8) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
                 verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
+                modifier = Modifier.padding(vertical = MiruSpace.Xs),
             ) {
                 filter.options.forEach { option ->
                     MiruFilterChip(
@@ -166,41 +171,13 @@ private fun SelectFilter(
                     )
                 }
             }
-        }
-    } else {
-        var open by remember(filter.key) { mutableStateOf(false) }
-        val currentLabel = filter.options.firstOrNull { it.value == current }?.label ?: current
-        SheetSection(title = filter.label, preserveCase = true) {
-            SettingsValueRow(
-                title = currentLabel,
-                value = "",
-                onClick = { open = !open },
-                horizontalPadding = Dp(0f),
-                trailing = {
-                    Icon(
-                        imageVector = if (open) {
-                            Icons.Filled.ExpandLess
-                        } else {
-                            Icons.Filled.ExpandMore
-                        },
-                        contentDescription = null,
-                        tint = LocalMiruExtraColors.current.muted,
-                    )
-                },
-            )
-            // Inline expansion, not a second ChoiceSheet: a ModalBottomSheet
-            // stacked on this one breaks back/dismiss ordering.
-            if (open) {
-                filter.options.forEach { option ->
-                    SettingsRadioRow(
-                        title = option.label,
-                        selected = option.value == current,
-                        onClick = {
-                            onChange(PluginFilterValue.Select(option.value))
-                            open = false
-                        },
-                    )
-                }
+        } else {
+            filter.options.forEach { option ->
+                SettingsRadioRow(
+                    title = option.label,
+                    selected = option.value == current,
+                    onClick = { onChange(PluginFilterValue.Select(option.value)) },
+                )
             }
         }
     }
@@ -272,25 +249,11 @@ private fun SwitchFilter(
     onChange: (PluginFilterValue) -> Unit,
 ) {
     val checked = (value as? PluginFilterValue.Toggle)?.enabled ?: false
-    SheetSection(title = filter.label, preserveCase = true) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .defaultMinSize(minHeight = MiruSize.Touch),
-        ) {
-            // The section header is the label; the row only carries the
-            // switch, so the sheet never prints the same label twice.
-            Spacer(modifier = Modifier.weight(1f))
-            Switch(
-                checked = checked,
-                onCheckedChange = { onChange(PluginFilterValue.Toggle(it)) },
-                modifier = Modifier.semantics {
-                    contentDescription = filter.label
-                },
-            )
-        }
-    }
+    SettingsSwitchRow(
+        title = filter.label,
+        checked = checked,
+        onChange = { onChange(PluginFilterValue.Toggle(it)) },
+    )
 }
 
 @Composable
@@ -301,7 +264,11 @@ private fun TextFilter(
     onChange: (PluginFilterValue) -> Unit,
 ) {
     val text = (value as? PluginFilterValue.TextInput)?.value.orEmpty()
-    SheetSection(title = filter.label, preserveCase = true) {
+    SheetSection(
+        title = filter.label,
+        summary = text.takeIf { it.isNotBlank() },
+        preserveCase = true,
+    ) {
         MiruTextField(
             value = text,
             onValueChange = { onChange(PluginFilterValue.TextInput(it)) },

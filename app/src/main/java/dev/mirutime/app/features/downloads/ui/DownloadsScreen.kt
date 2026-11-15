@@ -67,6 +67,7 @@ import dev.mirutime.uikit.MiruSize
 import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.app.design.components.BookCover
+import dev.mirutime.app.design.rememberPersistedEnum
 import dev.mirutime.uikit.MiruActionRow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.MiruRowDivider
@@ -121,7 +122,7 @@ fun DownloadsScreen(
     var rowsLoaded by remember { mutableStateOf(false) }
     var usageLoaded by remember { mutableStateOf(false) }
     var rows by remember { mutableStateOf<List<DownloadBookUi>>(emptyList()) }
-    var tab by remember { mutableStateOf(DlTab.Downloaded) }
+    var tab by rememberPersistedEnum("downloads.tab", DlTab.Downloaded)
     var settingsOpen by remember { mutableStateOf(false) }
     var actionsFor by remember { mutableStateOf<DownloadBookUi?>(null) }
     var pendingDelete by remember { mutableStateOf<DownloadBookUi?>(null) }

@@ -408,13 +408,9 @@
 
     <!-- Shelves -->
     <string name="shelf_title">Estantes</string>
-    <string name="shelf_desc">Escolha uma estante para abrir, ou gerencie abaixo.</string>
-    <string name="shelf_section_view">Visualização</string>
+    <string name="shelf_desc">Crie, renomeie, reordene ou exclua estantes.</string>
     <string name="shelf_section_manage">Gerenciar estantes</string>
     <string name="shelf_new_btn">+ Nova estante</string>
-    <string name="shelf_mode_list">Lista</string>
-    <string name="shelf_mode_nested">Aninhadas</string>
-    <string name="shelf_mode_covers">Capas</string>
     <string name="shelf_new_title">Nova estante</string>
     <string name="shelf_new_desc">Dê um nome à nova estante. As estantes entram nas verificações automáticas de atualização, a menos que você as ignore abaixo.</string>
     <string name="shelf_edit_title">Editar estante</string>

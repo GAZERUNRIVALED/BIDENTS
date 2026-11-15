@@ -4,7 +4,11 @@ import androidx.room3.Embedded
 import androidx.room3.RoomRawQuery
 import androidx.sqlite.SQLiteStatement
 
-/** Library list sorts. LastUpdate/Added intentionally alias lastRead. */
+/**
+ * Library list sorts. Each has its own key: LastRead by lastReadAt, Added by
+ * the moment the book joined the library, LastUpdate by the newest chapter
+ * update (falling back to the join time for never-updated books).
+ */
 enum class LibrarySort {
     LastRead,
     LastUpdate,
@@ -35,7 +39,8 @@ enum class LibraryContentType(val stored: String) {
 
 /** SQL-level filters; all values are bound, never interpolated. */
 data class LibraryPageFilters(
-    val shelfId: String? = null,
+    // Empty = every shelf (the "All" tab).
+    val shelfIds: Set<String> = emptySet(),
     val sources: Set<String> = emptySet(),
     val contentType: LibraryContentType? = null,
     val genres: Set<String> = emptySet(),
@@ -51,6 +56,7 @@ data class LibraryPageCursor(
     val bookId: Long,
     val lastReadAt: Long? = null,
     val addedAt: Long? = null,
+    val sortKey: Long? = null,
     val title: String? = null,
     val unreadCount: Int? = null,
 )
@@ -101,15 +107,27 @@ internal const val LibraryPageSize = 60
 // unread books last in DESC and first in ASC, matching the current UI order.
 private const val LastReadKey = "COALESCE(b.lastReadAt, -1)"
 
+// "Joined the library": addedAt alone is the first time the row existed, which
+// can predate adding (browsed from a catalog first).
+private const val AddedKey = "COALESCE(b.addedToLibraryAt, b.addedAt)"
+private const val LastUpdateKey = "COALESCE(b.lastUpdateAt, b.addedToLibraryAt, b.addedAt)"
+
 private const val UnreadExpr =
     "MAX(b.totalChapters - (SELECT COUNT(*) FROM chapters c " +
         "WHERE c.bookId = b.bookId AND c.read = 1 AND c.removedAt IS NULL), 0)"
 
 /**
- * Keyset page query. The base order is the current visible order per sort:
- * last-read DESC with addedAt/bookId ties (LastUpdate/Added alias it), title
- * ASC, unread ASC. Asc/Desc either keeps or reverses that base order, exactly
- * like LibraryScreen's comparator. Search does not use this path.
+ * Keyset page query. Each sort has its own key expression:
+ * - LastRead: [LastReadKey] DESC with addedAt/bookId ties;
+ * - Added: [AddedKey] = COALESCE(addedToLibraryAt, addedAt);
+ * - LastUpdate: [LastUpdateKey] = COALESCE(lastUpdateAt, addedToLibraryAt, addedAt);
+ * - Title: case-insensitive ASC with bookId ties;
+ * - Unread: unread-chapter count ASC with bookId ties.
+ * Asc/Desc either keeps or reverses that base order, exactly like
+ * LibraryScreen's comparator. Search does not use this path.
+ *
+ * Title's COLLATE NOCASE folds ASCII only, so non-ASCII titles (Cyrillic)
+ * still sort byte-wise; a real locale order needs a normalised lower-case column.
  */
 internal fun libraryPageQuery(
     limit: Int,
@@ -177,12 +195,26 @@ internal fun LibraryPageRow.toCursor(
     sort: LibrarySort,
     direction: LibrarySortDirection,
 ): LibraryPageCursor = when (sort) {
-    LibrarySort.LastRead, LibrarySort.LastUpdate, LibrarySort.Added -> LibraryPageCursor(
+    LibrarySort.LastRead -> LibraryPageCursor(
         sort = sort,
         direction = direction,
         bookId = book.bookId,
         lastReadAt = book.lastReadAt,
         addedAt = book.addedAt,
+    )
+
+    LibrarySort.Added -> LibraryPageCursor(
+        sort = sort,
+        direction = direction,
+        bookId = book.bookId,
+        sortKey = book.addedToLibraryAt ?: book.addedAt,
+    )
+
+    LibrarySort.LastUpdate -> LibraryPageCursor(
+        sort = sort,
+        direction = direction,
+        bookId = book.bookId,
+        sortKey = book.lastUpdateAt ?: book.addedToLibraryAt ?: book.addedAt,
     )
 
     LibrarySort.Title -> LibraryPageCursor(
@@ -226,8 +258,8 @@ private class WhereParts {
 
     fun addFilters(filters: LibraryPageFilters) {
         clauses += "b.inLibrary = 1"
-        filters.shelfId?.takeIf { it.isNotBlank() }?.let { shelfId ->
-            clauses += "b.shelfId = ${bind(shelfId)}"
+        filters.shelfIds.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let { ids ->
+            clauses += "b.shelfId IN (${bindAll(ids.sorted())})"
         }
         if (filters.sources.isNotEmpty()) {
             val sources = filters.sources.sorted()
@@ -266,7 +298,19 @@ private class WhereParts {
     ) {
         val descending = direction == LibrarySortDirection.Desc
         when (sort) {
-            LibrarySort.LastRead, LibrarySort.LastUpdate, LibrarySort.Added -> {
+            LibrarySort.Added, LibrarySort.LastUpdate -> {
+                val expr = if (sort == LibrarySort.Added) AddedKey else LastUpdateKey
+                val key = requireNotNull(cursor.sortKey) { "cursor sortKey required for keyset paging" }
+                if (descending) {
+                    clauses += "($expr < ${bind(key)} OR " +
+                        "($expr = ${bind(key)} AND b.bookId > ${bind(cursor.bookId)}))"
+                } else {
+                    clauses += "($expr > ${bind(key)} OR " +
+                        "($expr = ${bind(key)} AND b.bookId < ${bind(cursor.bookId)}))"
+                }
+            }
+
+            LibrarySort.LastRead -> {
                 val key = cursor.lastReadAt ?: -1L
                 val addedAt = cursor.addedAt ?: 0L
                 if (descending) {
@@ -288,12 +332,13 @@ private class WhereParts {
 
             LibrarySort.Title -> {
                 val title = cursor.title.orEmpty()
+                // NOCASE must match ORDER BY, or pages skip/repeat mixed-case titles.
                 if (descending) {
-                    clauses += "(b.title < ${bind(title)} OR " +
-                        "(b.title = ${bind(title)} AND b.bookId < ${bind(cursor.bookId)}))"
+                    clauses += "(b.title COLLATE NOCASE < ${bind(title)} OR " +
+                        "(b.title COLLATE NOCASE = ${bind(title)} AND b.bookId < ${bind(cursor.bookId)}))"
                 } else {
-                    clauses += "(b.title > ${bind(title)} OR " +
-                        "(b.title = ${bind(title)} AND b.bookId > ${bind(cursor.bookId)}))"
+                    clauses += "(b.title COLLATE NOCASE > ${bind(title)} OR " +
+                        "(b.title COLLATE NOCASE = ${bind(title)} AND b.bookId > ${bind(cursor.bookId)}))"
                 }
             }
 
@@ -314,18 +359,23 @@ private class WhereParts {
 private fun orderBy(sort: LibrarySort, direction: LibrarySortDirection): String {
     val descending = direction == LibrarySortDirection.Desc
     return when (sort) {
-        LibrarySort.LastRead, LibrarySort.LastUpdate, LibrarySort.Added ->
+        LibrarySort.LastRead ->
             if (descending) {
                 "$LastReadKey DESC, b.addedAt DESC, b.bookId ASC"
             } else {
                 "$LastReadKey ASC, b.addedAt ASC, b.bookId DESC"
             }
 
+        LibrarySort.Added, LibrarySort.LastUpdate -> {
+            val expr = if (sort == LibrarySort.Added) AddedKey else LastUpdateKey
+            if (descending) "$expr DESC, b.bookId ASC" else "$expr ASC, b.bookId DESC"
+        }
+
         LibrarySort.Title ->
             if (descending) {
-                "b.title DESC, b.bookId DESC"
+                "b.title COLLATE NOCASE DESC, b.bookId DESC"
             } else {
-                "b.title ASC, b.bookId ASC"
+                "b.title COLLATE NOCASE ASC, b.bookId ASC"
             }
 
         LibrarySort.Unread ->

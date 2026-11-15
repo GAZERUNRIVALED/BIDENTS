@@ -2092,8 +2092,14 @@ internal suspend fun mergeBookRow(
         rating = if (incoming.rating != 0.0) incoming.rating else row.rating,
         inLibrary = row.inLibrary || incoming.inLibrary,
         addedAt = minOf(row.addedAt, incoming.addedAt),
-        addedToLibraryAt = listOfNotNull(row.addedToLibraryAt, incoming.addedToLibraryAt)
-            .minOrNull(),
+        addedToLibraryAt = when {
+            row.inLibrary ->
+                listOfNotNull(row.addedToLibraryAt ?: row.addedAt, incoming.addedToLibraryAt).minOrNull()
+            incoming.inLibrary ->
+                listOfNotNull(incoming.addedToLibraryAt ?: incoming.addedAt, row.addedToLibraryAt).minOrNull()
+            else ->
+                listOfNotNull(row.addedToLibraryAt, incoming.addedToLibraryAt).minOrNull()
+        },
         updatedAt = maxOf(row.updatedAt, incoming.updatedAt),
         lastReadAt = lastReadAt,
         lastChapterId = lastChapterId,

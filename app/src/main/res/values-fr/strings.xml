@@ -408,13 +408,9 @@
 
     <!-- Shelves -->
     <string name="shelf_title">Étagères</string>
-    <string name="shelf_desc">Ouvrez une étagère ou gérez-les ci-dessous.</string>
-    <string name="shelf_section_view">Affichage</string>
+    <string name="shelf_desc">Créez, renommez, réorganisez ou supprimez des étagères.</string>
     <string name="shelf_section_manage">Gérer les étagères</string>
     <string name="shelf_new_btn">+ Nouvelle étagère</string>
-    <string name="shelf_mode_list">Liste</string>
-    <string name="shelf_mode_nested">Imbriqué</string>
-    <string name="shelf_mode_covers">Couvertures</string>
     <string name="shelf_new_title">Nouvelle étagère</string>
     <string name="shelf_new_desc">Nommez la nouvelle étagère. Les étagères participent aux vérifications automatiques de mises à jour, sauf si vous les excluez ci-dessous.</string>
     <string name="shelf_edit_title">Modifier l\'étagère</string>

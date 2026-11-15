@@ -14,6 +14,10 @@ enum class LibrarySort {
 
 enum class SortDirection { Asc, Desc }
 
+/** Direction a sort starts in when picked: A→Z for titles, newest/most first otherwise. */
+fun LibrarySort.defaultDirection(): SortDirection =
+    if (this == LibrarySort.Title) SortDirection.Asc else SortDirection.Desc
+
 @kotlinx.serialization.Serializable
 enum class CardStyle {
     // Legacy persisted values: kept readable for backup/restore, never shown.

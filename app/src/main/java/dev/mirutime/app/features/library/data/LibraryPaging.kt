@@ -21,7 +21,8 @@ data class LibraryPageSlice(
 )
 
 data class LibraryPageFilters(
-    val shelfId: String? = null,
+    // Empty = every shelf (the "All" tab).
+    val shelfIds: Set<String> = emptySet(),
     val sources: Set<String> = emptySet(),
     val contentType: ContentType? = null,
     val genres: Set<String> = emptySet(),
@@ -51,7 +52,7 @@ internal fun sortAppliesToQuery(query: String): Boolean = query.trim().isEmpty()
 
 internal fun LibraryPageFilters.toData(): dev.mirutime.data.library.LibraryPageFilters =
     dev.mirutime.data.library.LibraryPageFilters(
-        shelfId = shelfId,
+        shelfIds = shelfIds,
         sources = sources,
         contentType = contentType?.toData(),
         genres = genres,

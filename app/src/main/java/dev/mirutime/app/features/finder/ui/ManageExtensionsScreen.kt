@@ -76,11 +76,14 @@ import dev.mirutime.uikit.MiruSearchBar
 import dev.mirutime.uikit.MiruSectionCard
 import dev.mirutime.app.di.InstallReport
 import dev.mirutime.app.design.components.PluginAvatar
+import dev.mirutime.app.design.rememberPersistedState
 import dev.mirutime.app.features.finder.data.FinderDataProvider
 import dev.mirutime.app.features.finder.data.importPluginFile
 import dev.mirutime.app.features.finder.data.installFailureDetails
 import dev.mirutime.app.features.finder.domain.ExtensionFilters
+import dev.mirutime.app.features.finder.domain.ExtensionStatus
 import dev.mirutime.app.features.finder.domain.PluginExtension
+import dev.mirutime.app.features.library.domain.ContentType
 import dev.mirutime.app.features.finder.domain.PluginFileInstall
 import dev.mirutime.app.features.finder.domain.PluginFileRejection
 import dev.mirutime.app.features.finder.domain.PluginSetting
@@ -124,7 +127,27 @@ fun ManageExtensionsScreen(
     var plugins by remember { mutableStateOf<List<PluginExtension>?>(null) }
     var busyIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var repoBusy by remember { mutableStateOf(false) }
-    var filters by remember { mutableStateOf(ExtensionFilters()) }
+    var filters by rememberPersistedState<ExtensionFilters>(
+        key = "extensions.filters",
+        default = ExtensionFilters(),
+        encode = { f ->
+            listOf(
+                f.types.joinToString(",") { it.name },
+                f.languages.joinToString(","),
+                f.status.name,
+            ).joinToString(";")
+        },
+        decode = { raw ->
+            val parts = raw.split(";")
+            if (parts.size < 3) return@rememberPersistedState null
+            val types = if (parts[0].isEmpty()) emptySet() else parts[0].split(",").mapNotNull { name ->
+                runCatching { ContentType.valueOf(name) }.getOrNull()
+            }.toSet()
+            val langs = if (parts[1].isEmpty()) emptySet() else parts[1].split(",").toSet()
+            val status = runCatching { ExtensionStatus.valueOf(parts[2]) }.getOrDefault(ExtensionStatus.Any)
+            ExtensionFilters(query = "", types = types, languages = langs, status = status)
+        },
+    )
     var filterOpen by remember { mutableStateOf(false) }
     var actionsFor by remember { mutableStateOf<PluginExtension?>(null) }
     var settingsFor by remember { mutableStateOf<PluginExtension?>(null) }

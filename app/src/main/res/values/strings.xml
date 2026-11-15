@@ -418,13 +418,10 @@
 
     <!-- Shelves -->
     <string name="shelf_title">Shelves</string>
-    <string name="shelf_desc">Pick a shelf to open it, or manage them below.</string>
-    <string name="shelf_section_view">View</string>
+    <string name="shelf_desc">Create, rename, reorder or delete shelves.</string>
+    <string name="shelf_all">All</string>
     <string name="shelf_section_manage">Manage shelves</string>
     <string name="shelf_new_btn">+ New shelf</string>
-    <string name="shelf_mode_list">List</string>
-    <string name="shelf_mode_nested">Nested</string>
-    <string name="shelf_mode_covers">Covers</string>
     <string name="shelf_new_title">New shelf</string>
     <string name="shelf_new_desc">Name the new shelf. Shelves join automatic update checks unless skipped below.</string>
     <string name="shelf_edit_title">Edit shelf</string>

@@ -236,7 +236,7 @@ class FakeLibraryDataProvider : LibraryDataProvider {
 }
 
 private fun LibraryBook.matches(filters: LibraryPageFilters): Boolean {
-    if (!filters.shelfId.isNullOrBlank() && shelfId != filters.shelfId) return false
+    if (filters.shelfIds.isNotEmpty() && shelfId !in filters.shelfIds) return false
     if (filters.sources.isNotEmpty() && source !in filters.sources) return false
     if (filters.contentType != null && contentType != filters.contentType) return false
     if (filters.genres.isNotEmpty() && filterGenres.none { it in filters.genres }) return false

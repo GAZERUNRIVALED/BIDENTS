@@ -408,13 +408,9 @@
 
     <!-- Shelves -->
     <string name="shelf_title">Estanterías</string>
-    <string name="shelf_desc">Elige una estantería para abrirla, o gestiónalas abajo.</string>
-    <string name="shelf_section_view">Vista</string>
+    <string name="shelf_desc">Crea, renombra, reordena o elimina estanterías.</string>
     <string name="shelf_section_manage">Gestionar estanterías</string>
     <string name="shelf_new_btn">+ Nueva estantería</string>
-    <string name="shelf_mode_list">Lista</string>
-    <string name="shelf_mode_nested">Anidada</string>
-    <string name="shelf_mode_covers">Portadas</string>
     <string name="shelf_new_title">Nueva estantería</string>
     <string name="shelf_new_desc">Pon nombre a la nueva estantería. Las estanterías se suman a las comprobaciones automáticas de actualizaciones salvo que lo omitas abajo.</string>
     <string name="shelf_edit_title">Editar estantería</string>

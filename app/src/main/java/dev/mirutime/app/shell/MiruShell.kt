@@ -5,8 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -579,25 +577,12 @@ fun MiruShell(
             // Every destination (not only bottom sheets) lifts above the IME, so
             // full-screen text forms never have their fields/actions covered.
             modifier = Modifier.imePadding(),
-            // Tab switches read as a quick settle, not a muddy blend: the old
-            // screen fades out fast while shrinking a touch, the new one
-            // fades in at full size. Same curve everywhere incl. drill-ins.
-            enterTransition = {
-                fadeIn(animationSpec = tween(250)) +
-                    scaleIn(initialScale = 0.98f, animationSpec = tween(250))
-            },
-            exitTransition = {
-                fadeOut(animationSpec = tween(150)) +
-                    scaleOut(targetScale = 0.98f, animationSpec = tween(150))
-            },
-            popEnterTransition = {
-                fadeIn(animationSpec = tween(250)) +
-                    scaleIn(initialScale = 0.98f, animationSpec = tween(250))
-            },
-            popExitTransition = {
-                fadeOut(animationSpec = tween(150)) +
-                    scaleOut(targetScale = 0.98f, animationSpec = tween(150))
-            },
+            // Clean, non-distracting crossfade transitions without scale glitches
+            // when returning from sub-screens.
+            enterTransition = { fadeIn(animationSpec = tween(200)) },
+            exitTransition = { fadeOut(animationSpec = tween(150)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(200)) },
+            popExitTransition = { fadeOut(animationSpec = tween(150)) },
         ) {
             composable(MiruDestination.Dashboard.route) {
                 DashboardScreen(
@@ -1072,7 +1057,7 @@ fun MiruShell(
             doneLabel = stringResource(R.string.lib_done),
             onDone = { themeSheetOpen = false },
         ) {
-            SheetSection(title = stringResource(UiKitR.string.theme_section_scheme)) {
+            SheetSection(title = stringResource(UiKitR.string.theme_section_scheme), collapsible = false) {
                 ThemePickerRails(
                     selected = themeMode,
                     customBg = customBg,

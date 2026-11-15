@@ -408,13 +408,9 @@
 
     <!-- Shelves -->
     <string name="shelf_title">Raflar</string>
-    <string name="shelf_desc">Açmak için bir raf seçin veya aşağıdan yönetin.</string>
-    <string name="shelf_section_view">Görünüm</string>
+    <string name="shelf_desc">Rafları oluşturun, yeniden adlandırın, sıralayın veya silin.</string>
     <string name="shelf_section_manage">Rafları yönet</string>
     <string name="shelf_new_btn">+ Yeni raf</string>
-    <string name="shelf_mode_list">Liste</string>
-    <string name="shelf_mode_nested">İç içe</string>
-    <string name="shelf_mode_covers">Kapaklar</string>
     <string name="shelf_new_title">Yeni raf</string>
     <string name="shelf_new_desc">Yeni rafı adlandırın. Raflar, aşağıda atlanmadıkça otomatik güncelleme denetimlerine katılır.</string>
     <string name="shelf_edit_title">Rafı düzenle</string>

@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -73,11 +72,9 @@ import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.app.R
 import dev.mirutime.uikit.LocalMiruExtraColors
 import dev.mirutime.uikit.LocalMiruOnImage
-import dev.mirutime.uikit.OnImageFrost
 import dev.mirutime.uikit.miruPhotoMuted
 import dev.mirutime.uikit.miruCardElevation
 import dev.mirutime.uikit.miruCardSurface
-import dev.mirutime.uikit.withImageShadow
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.app.design.components.BookCover
 import dev.mirutime.app.design.components.CardStylePicker
@@ -99,6 +96,7 @@ import dev.mirutime.data.library.libraryBookKey
 import dev.mirutime.core.api.getOrNull
 import dev.mirutime.core.log.MiruLog
 import dev.mirutime.app.di.ReaderGraph
+import dev.mirutime.app.features.finder.ui.FilterChipGroup
 import dev.mirutime.app.features.library.data.BulkActionResult
 import dev.mirutime.app.features.library.data.LibraryDataProvider
 import dev.mirutime.app.features.library.data.LibraryFacets
@@ -107,10 +105,14 @@ import dev.mirutime.app.features.library.data.LibraryPageFilters
 import dev.mirutime.app.features.library.data.LibraryPageSize
 import dev.mirutime.app.features.library.data.LibraryShelfSummary
 import dev.mirutime.app.features.library.data.sortAppliesToQuery
+import dev.mirutime.app.design.rememberPersistedEnum
+import dev.mirutime.app.design.rememberPersistedOptionalEnum
+import dev.mirutime.app.design.rememberPersistedStringSet
 import dev.mirutime.app.features.library.domain.CardStyle
 import dev.mirutime.app.features.library.domain.ContentType
 import dev.mirutime.app.features.library.domain.LibraryBook
 import dev.mirutime.app.features.library.domain.LibrarySort
+import dev.mirutime.app.features.library.domain.defaultDirection
 import dev.mirutime.app.features.settings.data.AppSettings
 import dev.mirutime.app.features.translation.data.TitleTranslationJob
 import dev.mirutime.app.features.translation.data.TitleSurface
@@ -163,14 +165,15 @@ fun LibraryScreen(
     var selectAllBusy by remember { mutableStateOf(false) }
 
     var query by rememberSaveable { mutableStateOf("") }
-    var shelfId by rememberSaveable { mutableStateOf("reading") }
-    // Empty set = all sources (the All chip). Sets are not saveable-safe,
-    // so this one stays in-memory like genres.
-    var selSources by remember { mutableStateOf(emptySet<String>()) }
-    var type by rememberSaveable { mutableStateOf<ContentType?>(null) }
-    var genres by remember { mutableStateOf(emptySet<String>()) }
-    var sort by rememberSaveable { mutableStateOf(LibrarySort.LastRead) }
-    var sortDir by rememberSaveable { mutableStateOf(SortDirection.Desc) }
+    // What the user picked stays picked: shelves, filters and sort live in
+    // PersistedState, so opening a book or restarting the app keeps them.
+    // Empty shelf set = the All tab; empty sets = no source/genre filter.
+    var selShelves by rememberPersistedStringSet("library.shelves")
+    var selSources by rememberPersistedStringSet("library.sources")
+    var type by rememberPersistedOptionalEnum<ContentType>("library.type")
+    var genres by rememberPersistedStringSet("library.genres")
+    var sort by rememberPersistedEnum("library.sort", LibrarySort.LastRead)
+    var sortDir by rememberPersistedEnum("library.sortDir", SortDirection.Desc)
     // Layout and columns are shared with the catalogue grid and Settings ->
     // Library (BOOKS_LIST_LAYOUT_MODE / BOOKS_GRID_COLUMNS in AppSettings).
     val layout = if (AppSettings.listLayout == "list") LayoutMode.List else LayoutMode.Grid
@@ -221,12 +224,12 @@ fun LibraryScreen(
     }
     var scrollResetPrimed by remember { mutableStateOf(false) }
     fun currentFilters() = LibraryPageFilters(
-        shelfId = shelfId,
+        shelfIds = selShelves,
         sources = selSources,
         contentType = type,
         genres = genres,
     )
-    val filters = remember(shelfId, selSources, type, genres) { currentFilters() }
+    val filters = remember(selShelves, selSources, type, genres) { currentFilters() }
 
     // One page-fetch loop for first load, retry and the post-mutation refresh;
     // [generation] makes a stale response a no-op.
@@ -370,12 +373,21 @@ fun LibraryScreen(
         }
     }
 
+    // If a shelf was deleted externally or restored, prune deleted IDs from the active selection.
+    LaunchedEffect(shelves) {
+        if (shelves.isNotEmpty() && selShelves.isNotEmpty()) {
+            val known = shelves.map { it.id }.toSet()
+            val pruned = selShelves.intersect(known)
+            if (pruned != selShelves) selShelves = pruned
+        }
+    }
+
     // Filter state is user-visible config, not content: safe to log as counts.
-    LaunchedEffect(shelfId, selSources, type, genres, sort, sortDir) {
+    LaunchedEffect(selShelves, selSources, type, genres, sort, sortDir) {
         MiruLog.event(
             "library",
             "filters",
-            "shelf" to shelfId,
+            "shelves" to selShelves.size,
             "sources" to selSources.size,
             "type" to (type?.name ?: "all"),
             "genres" to genres.size,
@@ -407,14 +419,26 @@ fun LibraryScreen(
 
     LaunchedEffect(
         provider,
-        shelfId,
+        selShelves,
         selSources,
         type,
         genres,
         sort,
         sortDir,
         appliedQuery,
+        metaLoaded,
     ) {
+        // Shelves are empty until meta lands, so a cold start cannot tell a
+        // restored-but-deleted shelf from a real one. Wait for meta; the
+        // skeleton covers this frame.
+        if (!metaLoaded) return@LaunchedEffect
+        // A restored shelf selection can name a shelf that no longer exists. The
+        // prune effect below clears it and re-runs this one, so skip the stale
+        // query instead of firing it and flashing an empty result.
+        if (shelves.isNotEmpty() && selShelves.any { id -> shelves.none { it.id == id } }) {
+            MiruLog.event("library", "filters-wait-prune", "shelves" to selShelves.size)
+            return@LaunchedEffect
+        }
         // New filter/shelf/query = new list: start it at the top. The very
         // first pass is a restored screen, so it keeps its saved position.
         if (scrollResetPrimed) {
@@ -699,8 +723,11 @@ fun LibraryScreen(
             item {
                 ShelfTabsRow(
                     shelves = shelves,
-                    selectedId = shelfId,
-                    onSelect = { shelfId = it },
+                    selectedIds = selShelves,
+                    onToggle = { id ->
+                        selShelves = if (id in selShelves) selShelves - id else selShelves + id
+                    },
+                    onSelectAll = { selShelves = emptySet() },
                     onManage = { shelfManagerOpen = true },
                     onTabLongPress = { shelfManagerOpen = true },
                     modifier = Modifier,
@@ -725,7 +752,7 @@ fun LibraryScreen(
                     )
                 }
             } else {
-                if (lastRead != null && shelfId == "reading") {
+                if (lastRead != null && (selShelves.isEmpty() || "reading" in selShelves)) {
                     item {
                         lastRead?.let { book ->
                             ResumeCard(
@@ -764,9 +791,8 @@ fun LibraryScreen(
                 // local-import entry on the right.
             item {
                 // Counter row: hug-content mini-pill + Import pill, space-between.
-                // Shared size grid: 28dp pills, 12sp labels — identical in every
-                // mode; backing + ink come from the adaptive top strip zone
-                // (checked at decode), classic keeps theme colors.
+                // Shared size grid: 32dp pills, 12sp labels — identical in every
+                // mode; backing matches the secondary plate fill (surfaceContainerLow).
                 val onImage = LocalMiruOnImage.current
                 val zone = LocalMiruExtraColors.current.photoTop
                 Row(
@@ -776,9 +802,13 @@ fun LibraryScreen(
                         .fillMaxWidth()
                         .padding(top = MiruSpace.Xs),
                 ) {
-                    OnImageFrost(
-                        backingColor = if (onImage) zone.pillBackdrop else null,
-                        blur = 10.dp,
+                    Box(
+                        modifier = Modifier
+                            .heightIn(min = MiruSize.RowCompact)
+                            .clip(RoundedCornerShape(MiruRadius.Control))
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            .padding(horizontal = MiruSpace.M),
+                        contentAlignment = Alignment.Center,
                     ) {
                         val count = pager.total ?: shown.size
                         Text(
@@ -787,15 +817,9 @@ fun LibraryScreen(
                                 count,
                                 count,
                             ),
-                            style = MaterialTheme.typography.bodySmall.withImageShadow(),
-                            color = if (onImage) zone.pillInk else miruPhotoMuted(),
-                            // EXACTLY 32dp tall in BOTH modes: the height lives on
-                            // the text, not on the photo-only frost padding — that
-                            // skip was the actual-size collapse source (16–20dp).
-                            modifier = Modifier
-                                .heightIn(min = MiruSize.RowCompact)
-                                .wrapContentHeight(Alignment.CenterVertically)
-                                .padding(horizontal = MiruSpace.M),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (onImage) zone.pillInk else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
                         )
                     }
                     MiruButton(
@@ -996,7 +1020,7 @@ fun LibraryScreen(
             description = stringResource(R.string.lib_source_desc),
             onClose = { sourceSheetOpen = false },
         ) {
-            SheetSection(title = stringResource(R.string.lib_source_title)) {
+            SheetSection(title = stringResource(R.string.lib_source_title), collapsible = false) {
                 SourcesOptions(
                     selected = selSources,
                     all = sources,
@@ -1014,7 +1038,7 @@ fun LibraryScreen(
             description = stringResource(R.string.lib_genres_desc),
             onClose = { genresSheetOpen = false },
         ) {
-            SheetSection(title = stringResource(R.string.lib_genres_title)) {
+            SheetSection(title = stringResource(R.string.lib_genres_title), collapsible = false) {
                 GenresOptions(selected = genres, all = allGenres) {
                     genres = if (it in genres) genres - it else genres + it
                 }
@@ -1027,12 +1051,13 @@ fun LibraryScreen(
             description = stringResource(R.string.lib_sort_desc),
             onClose = { sortSheetOpen = false },
         ) {
-            SheetSection(title = stringResource(R.string.lib_section_sort)) {
+            SheetSection(title = stringResource(R.string.lib_section_sort), collapsible = false) {
                 SortOptions(sort = sort, sortDir = sortDir) { option ->
                     if (option == sort) {
                         sortDir = sortDir.flip()
                     } else {
                         sort = option
+                        sortDir = option.defaultDirection()
                     }
                 }
             }
@@ -1043,7 +1068,7 @@ fun LibraryScreen(
             if (files.isEmpty() || importing) return
             importing = true
             MiruLog.event("library", "import-start", "files" to files.size)
-            val wasReading = shelfId == "reading"
+            val wasReading = selShelves.isEmpty() || "reading" in selShelves
             ioScope.launch {
                 try {
                     val summary = try {
@@ -1071,7 +1096,10 @@ fun LibraryScreen(
                             "failures" to summary.failures,
                         )
                         lastRead = provider.lastRead()
-                        shelfId = "reading"
+                        // New books land on Reading; make sure they are visible.
+                        if (selShelves.isNotEmpty() && "reading" !in selShelves) {
+                            selShelves = selShelves + "reading"
+                        }
                         reloadMeta()
                         // A shelf change already starts its own page load.
                         if (wasReading) refreshPages()
@@ -1114,10 +1142,6 @@ fun LibraryScreen(
             shelves = shelves,
             summaries = shelfSummaries,
             onClose = { shelfManagerOpen = false },
-            onSelectShelf = {
-                shelfId = it
-                shelfManagerOpen = false
-            },
             onCreateShelf = { label, skip ->
                 val base = label.trim().lowercase().replace(Regex("\\s+"), "-")
                 var id = base
@@ -1128,7 +1152,7 @@ fun LibraryScreen(
                 }
                 val shelf = Shelf(id = id, label = label.trim(), excludeFromUpdates = skip)
                 shelves = shelves + shelf
-                shelfId = shelf.id
+                selShelves = setOf(shelf.id)
                 MiruLog.event("library", "shelf", "action" to "create", "shelf" to id)
                 ioScope.launch {
                     provider.saveShelf(shelf)
@@ -1145,9 +1169,9 @@ fun LibraryScreen(
                 }
             },
             onDeleteShelf = { shelf ->
-                val wasCurrent = shelfId == shelf.id
+                val wasCurrent = shelf.id in selShelves
                 shelves = shelves - shelf
-                if (wasCurrent) shelfId = "reading"
+                if (wasCurrent) selShelves = selShelves - shelf.id
                 MiruLog.event("library", "shelf", "action" to "delete", "shelf" to shelf.id)
                 ioScope.launch {
                     provider.deleteShelf(shelf.id)
@@ -1565,6 +1589,7 @@ private fun FilterSheet(
                         draftSortDir = draftSortDir.flip()
                     } else {
                         draftSort = option
+                        draftSortDir = option.defaultDirection()
                     }
                 }
             }
@@ -1665,25 +1690,17 @@ private fun SortOptions(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GenresOptions(
     selected: Set<String>,
     all: List<String>,
     onToggle: (String) -> Unit,
 ) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-        verticalArrangement = Arrangement.spacedBy(MiruSpace.S),
-    ) {
-        all.forEach { genre ->
-            MiruFilterChip(
-                selected = genre in selected,
-                onClick = { onToggle(genre) },
-                label = genre,
-            )
-        }
-    }
+    FilterChipGroup(
+        options = all,
+        selected = selected,
+        onToggle = onToggle,
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

@@ -407,13 +407,9 @@
 
     <!-- الأرفف -->
     <string name="shelf_title">الأرفف</string>
-    <string name="shelf_desc">اختر رفًا لفتحه، أو أدِرها بالأسفل.</string>
-    <string name="shelf_section_view">العرض</string>
+    <string name="shelf_desc">أنشئ الرفوف أو أعد تسميتها أو رتبها أو احذفها.</string>
     <string name="shelf_section_manage">إدارة الأرفف</string>
     <string name="shelf_new_btn">+ رف جديد</string>
-    <string name="shelf_mode_list">قائمة</string>
-    <string name="shelf_mode_nested">متداخل</string>
-    <string name="shelf_mode_covers">أغلفة</string>
     <string name="shelf_new_title">رف جديد</string>
     <string name="shelf_new_desc">سمِّ الرف الجديد. تنضم الأرفف إلى فحوص التحديث التلقائي ما لم تُستثنَ بالأسفل.</string>
     <string name="shelf_edit_title">تعديل الرف</string>

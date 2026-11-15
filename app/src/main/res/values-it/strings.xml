@@ -408,13 +408,9 @@
 
     <!-- Shelves -->
     <string name="shelf_title">Scaffali</string>
-    <string name="shelf_desc">Scegli uno scaffale per aprirlo, o gestiscili qui sotto.</string>
-    <string name="shelf_section_view">Vista</string>
+    <string name="shelf_desc">Crea, rinomina, riordina o elimina scaffali.</string>
     <string name="shelf_section_manage">Gestisci scaffali</string>
     <string name="shelf_new_btn">+ Nuovo scaffale</string>
-    <string name="shelf_mode_list">Elenco</string>
-    <string name="shelf_mode_nested">Annidato</string>
-    <string name="shelf_mode_covers">Copertine</string>
     <string name="shelf_new_title">Nuovo scaffale</string>
     <string name="shelf_new_desc">Dai un nome al nuovo scaffale. Gli scaffali entrano nei controlli automatici di aggiornamento se non li escludi qui sotto.</string>
     <string name="shelf_edit_title">Modifica scaffale</string>

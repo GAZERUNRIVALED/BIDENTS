@@ -326,6 +326,9 @@ fun AppBottomSheet(
 // as a short index of sections, and only the section the user picks grows.
 // Opening also scrolls that section to the top of the sheet, so the user never
 // has to hunt for it after tapping.
+// A sheet whose only section would just hide its own content passes
+// collapsible = false: the content shows at once, with no header or chevron
+// (the sheet title already names it).
 @Composable
 fun SheetSection(
     title: String,
@@ -340,6 +343,34 @@ fun SheetSection(
     preserveCase: Boolean = false,
     expanded: Boolean? = null,
     onExpandedChange: ((Boolean) -> Unit)? = null,
+    collapsible: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    if (!collapsible) {
+        Column(modifier = modifier.fillMaxWidth()) { content() }
+        return
+    }
+    CollapsibleSheetSection(
+        title = title,
+        modifier = modifier,
+        initiallyExpanded = initiallyExpanded,
+        summary = summary,
+        preserveCase = preserveCase,
+        expanded = expanded,
+        onExpandedChange = onExpandedChange,
+        content = content,
+    )
+}
+
+@Composable
+private fun CollapsibleSheetSection(
+    title: String,
+    modifier: Modifier,
+    initiallyExpanded: Boolean,
+    summary: String?,
+    preserveCase: Boolean,
+    expanded: Boolean?,
+    onExpandedChange: ((Boolean) -> Unit)?,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     var internalExpanded by rememberSaveable { mutableStateOf(initiallyExpanded) }

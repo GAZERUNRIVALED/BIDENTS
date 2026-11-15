@@ -11,6 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class LibraryPagingTest {
@@ -90,19 +91,47 @@ class LibraryPagingTest {
     }
 
     @Test
+    fun `tied added and last update keys cross page boundaries without loss`() = runTest {
+        // Same addedAt and same lastUpdateAt on every row, so each page boundary
+        // lands on the tie-breaker: an inverted bookId comparison drops a row.
+        val books = listOf(
+            seedOne("P", addedAt = 7L, lastUpdateAt = 7L),
+            seedOne("Q", addedAt = 7L, lastUpdateAt = 7L),
+            seedOne("R", addedAt = 7L, lastUpdateAt = 7L),
+        )
+        val unread = unreadCounts(books)
+
+        for (sort in listOf(LibrarySort.Added, LibrarySort.LastUpdate)) {
+            for (direction in LibrarySortDirection.entries) {
+                val pages = collectPages(books = books, sort = sort, direction = direction, limit = 2)
+                val ids = pages.flatMap { page -> page.books.map { it.bookId } }
+
+                assertEquals(books.size, ids.size, "$sort/$direction lost rows")
+                assertEquals(ids.size, ids.distinct().size, "$sort/$direction duplicates")
+                assertEquals(books.map { it.bookId }.toSet(), ids.toSet(), "$sort/$direction ids")
+                assertEquals(
+                    expectedOrder(books, unread, sort, direction),
+                    ids,
+                    "$sort/$direction order",
+                )
+            }
+        }
+    }
+
+    @Test
     fun `sql filters match count page and select all`() = runTest {
         val books = seedLibrary(137)
         val tagOnly = books.filter { indexOf(it) % 6 == 0 }.map { it.bookId }.toSet()
         val jsonOnly = books.filter { indexOf(it) % 4 == 0 }.map { it.bookId }.toSet()
-        val completed = books.filter { indexOf(it) % 2 == 1 }.map { it.bookId }.toSet()
+        val completed = books.filter { it.shelfId == "completed" }.map { it.bookId }.toSet()
         val sourceOne = books.filter { indexOf(it) % 3 == 1 }.map { it.bookId }.toSet()
         val manga = sourceOne
         val combined = books
-            .filter { indexOf(it) % 12 == 0 }
+            .filter { it.shelfId == "reading" && indexOf(it) % 12 == 0 }
             .map { it.bookId }
             .toSet()
 
-        assertFilter(books, LibraryPageFilters(shelfId = "completed"), completed)
+        assertFilter(books, LibraryPageFilters(shelfIds = setOf("completed")), completed)
         assertFilter(books, LibraryPageFilters(sources = setOf("src-1")), sourceOne)
         assertFilter(books, LibraryPageFilters(contentType = LibraryContentType.Manga), manga)
         assertFilter(books, LibraryPageFilters(genres = setOf("tag-genre")), tagOnly)
@@ -112,13 +141,24 @@ class LibraryPagingTest {
         assertFilter(
             books,
             LibraryPageFilters(
-                shelfId = "reading",
+                shelfIds = setOf("reading"),
                 sources = setOf("src-0"),
                 contentType = LibraryContentType.Novel,
                 genres = setOf("json-genre"),
             ),
             combined,
         )
+        // Multi-shelf filter matches any of the selected shelves; the seed has a
+        // third shelf ("wuxia"), so this cannot pass with the filter dropped.
+        assertFilter(
+            books,
+            LibraryPageFilters(shelfIds = setOf("reading", "completed")),
+            books.filter { it.shelfId == "reading" || it.shelfId == "completed" }
+                .map { it.bookId }
+                .toSet(),
+        )
+        // Empty shelf filter ("All" tab) matches every shelf.
+        assertFilter(books, LibraryPageFilters(shelfIds = emptySet()), books.map { it.bookId }.toSet())
     }
 
     @Test
@@ -147,8 +187,8 @@ class LibraryPagingTest {
         assertEquals(expectedJsonUrls, jsonUrls)
 
         val summaries = repository.shelfSummaries().associateBy { it.shelfId }
-        assertEquals(69, summaries.getValue("reading").bookCount)
-        assertEquals(68, summaries.getValue("completed").bookCount)
+        assertEquals(books.count { it.shelfId == "reading" }, summaries.getValue("reading").bookCount)
+        assertEquals(books.count { it.shelfId == "completed" }, summaries.getValue("completed").bookCount)
 
         val readingCover = books
             .filter { it.shelfId == "reading" }
@@ -156,6 +196,53 @@ class LibraryPagingTest {
             .first()
         assertEquals(readingCover.title, summaries.getValue("reading").coverTitle)
         assertEquals(readingCover.coverUrl, summaries.getValue("reading").coverUrl)
+    }
+
+    @Test
+    fun `last update sort uses the update key not the added key`() = runTest {
+        val books = seedLibrary(137)
+        val byAdded = collectPages(
+            sort = LibrarySort.Added,
+            direction = LibrarySortDirection.Desc,
+        ).flatMap { page -> page.books.map { it.bookId } }
+        val byLastUpdate = collectPages(
+            sort = LibrarySort.LastUpdate,
+            direction = LibrarySortDirection.Desc,
+        ).flatMap { page -> page.books.map { it.bookId } }
+
+        // The fixture mixes null and non-null lastUpdateAt, so a LastUpdate that
+        // still aliased Added would return an identical order here.
+        assertNotEquals(byAdded, byLastUpdate, "LastUpdate must not alias Added")
+        val expected = books
+            .sortedWith(
+                compareByDescending<BookEntity> {
+                    it.lastUpdateAt ?: it.addedToLibraryAt ?: it.addedAt
+                }.thenBy { it.bookId },
+            )
+            .map { it.bookId }
+        assertEquals(expected, byLastUpdate, "LastUpdate order")
+    }
+
+    @Test
+    fun `title pages walk every book in case-insensitive order`() = runTest {
+        val books = seedLibrary(137)
+        val expected = books
+            .sortedWith(
+                Comparator<BookEntity> { a, b ->
+                    String.CASE_INSENSITIVE_ORDER.compare(a.title, b.title)
+                }.thenBy { it.bookId },
+            )
+            .map { it.bookId }
+
+        val pages = collectPages(sort = LibrarySort.Title, direction = LibrarySortDirection.Asc)
+        val ids = pages.flatMap { page -> page.books.map { it.bookId } }
+
+        assertEquals(books.size, ids.size, "Title paging row count")
+        assertEquals(ids.size, ids.toSet().size, "Title paging duplicate rows")
+        assertEquals(books.map { it.bookId }.toSet(), ids.toSet(), "Title paging lost rows")
+        // Dropping COLLATE NOCASE from ORDER BY or the cursor predicate breaks
+        // this: the seed mixes "Book NNN" and "book NNN".
+        assertEquals(expected, ids, "Title order must be case-insensitive")
     }
 
     @Test
@@ -223,7 +310,7 @@ class LibraryPagingTest {
         val plan = libraryPageQuery(
             limit = 60,
             cursor = null,
-            filters = LibraryPageFilters(shelfId = "reading"),
+            filters = LibraryPageFilters(shelfIds = setOf("reading")),
             sort = LibrarySort.LastRead,
             direction = LibrarySortDirection.Desc,
         )
@@ -282,7 +369,7 @@ class LibraryPagingTest {
         assertEquals(expectedIds, ids.toSet(), "$filters ids")
         assertEquals(expectedIds.size, repository.libraryPageCount(filters), "$filters count")
         assertTrue(pages.all { it.total == expectedIds.size }, "$filters page total")
-        assertTrue(ids.none { it !in expectedIds }, "$filters unexpected row")
+        assertEquals(ids.size, ids.toSet().size, "$filters duplicate rows")
     }
 
     private suspend fun seedLibrary(count: Int): List<BookEntity> {
@@ -292,7 +379,11 @@ class LibraryPagingTest {
             val entity = BookEntity(
                 installId = "src-${i % 3}",
                 url = "https://site/book/$i",
-                title = "Book ${i.toString().padStart(3, '0')}",
+                title = if (i % 2 == 0) {
+                    "book ${i.toString().padStart(3, '0')}"
+                } else {
+                    "Book ${i.toString().padStart(3, '0')}"
+                },
                 author = "Author",
                 coverUrl = if (i % 3 == 0) "https://covers/$i.jpg" else null,
                 contentType = when (i % 3) {
@@ -301,7 +392,11 @@ class LibraryPagingTest {
                     else -> "Video"
                 },
                 rating = 4.0,
-                shelfId = if (i % 2 == 0) "reading" else "completed",
+                shelfId = when {
+                    i % 7 == 0 -> "wuxia"
+                    i % 2 == 0 -> "reading"
+                    else -> "completed"
+                },
                 totalChapters = 5 + (i % 9) * 10,
                 inLibrary = true,
                 addedAt = 1_000L + i,
@@ -310,7 +405,11 @@ class LibraryPagingTest {
                 lastChapterId = null,
                 lastChapterIndex = null,
                 chapterListHash = null,
-                lastUpdateAt = null,
+                lastUpdateAt = if (i % 3 == 0) null else 2_000L + ((i * 37) % 900),
+                // Distinct from addedAt and the lastUpdateAt range, and only on
+                // some rows, so AddedKey's COALESCE and the addedAt fallback
+                // produce different orders.
+                addedToLibraryAt = if (i % 5 == 0) 600L + i else null,
                 genresJson = if (i % 4 == 0) """["json-genre","g${i % 3}"]""" else "[]",
             )
             val id = dao.upsertBook(entity)
@@ -337,6 +436,8 @@ class LibraryPagingTest {
         addedAt: Long = 1L,
         totalChapters: Int = 10,
         contentType: String = "Novel",
+        addedToLibraryAt: Long? = null,
+        lastUpdateAt: Long? = null,
     ): BookEntity {
         val id = db.libraryDao().upsertBook(
             BookEntity(
@@ -356,7 +457,8 @@ class LibraryPagingTest {
                 lastChapterId = null,
                 lastChapterIndex = null,
                 chapterListHash = null,
-                lastUpdateAt = null,
+                lastUpdateAt = lastUpdateAt,
+                addedToLibraryAt = addedToLibraryAt,
                 genresJson = "[]",
             ),
         )
@@ -393,12 +495,22 @@ class LibraryPagingTest {
 
     private fun orderComparator(sort: LibrarySort, unread: Map<Long, Int>): Comparator<BookEntity> =
         when (sort) {
-            LibrarySort.LastRead, LibrarySort.LastUpdate, LibrarySort.Added ->
+            LibrarySort.LastRead ->
                 compareByDescending<BookEntity> { it.lastReadAt ?: -1L }
                     .thenByDescending { it.addedAt }
                     .thenBy { it.bookId }
 
-            LibrarySort.Title -> compareBy<BookEntity> { it.title }.thenBy { it.bookId }
+            LibrarySort.Added ->
+                compareByDescending<BookEntity> { it.addedToLibraryAt ?: it.addedAt }
+                    .thenBy { it.bookId }
+
+            LibrarySort.LastUpdate ->
+                compareByDescending<BookEntity> { it.lastUpdateAt ?: it.addedToLibraryAt ?: it.addedAt }
+                    .thenBy { it.bookId }
+
+            LibrarySort.Title ->
+                Comparator<BookEntity> { a, b -> String.CASE_INSENSITIVE_ORDER.compare(a.title, b.title) }
+                    .thenBy { it.bookId }
             LibrarySort.Unread ->
                 compareBy<BookEntity> { unread.getValue(it.bookId) }.thenBy { it.bookId }
         }

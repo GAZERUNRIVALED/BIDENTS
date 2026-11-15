@@ -45,7 +45,7 @@ class FakeLibraryPagingTest {
             query = "",
             cursor = null,
             limit = 60,
-            filters = LibraryPageFilters(shelfId = "reading"),
+            filters = LibraryPageFilters(shelfIds = setOf("reading")),
             sort = LibrarySort.LastRead,
             direction = SortDirection.Desc,
         )
@@ -91,7 +91,7 @@ class FakeLibraryPagingTest {
             query = "Iron",
             cursor = null,
             limit = 60,
-            filters = LibraryPageFilters(shelfId = "reading"),
+            filters = LibraryPageFilters(shelfIds = setOf("reading")),
             sort = LibrarySort.LastRead,
             direction = SortDirection.Desc,
         )
@@ -144,14 +144,14 @@ class FakeLibraryPagingTest {
 
         val readingUrls = provider.matchingLibraryUrls(
             query = "",
-            filters = LibraryPageFilters(shelfId = "reading"),
+            filters = LibraryPageFilters(shelfIds = setOf("reading")),
         )
         assertEquals(2, readingUrls.size)
         assertEquals(readingUrls.distinct(), readingUrls)
 
         val searchUrls = provider.matchingLibraryUrls(
             query = "NovelNest",
-            filters = LibraryPageFilters(shelfId = "reading"),
+            filters = LibraryPageFilters(shelfIds = setOf("reading")),
         )
         assertEquals(listOf("fake://novelnest/chronicles-seven-kingdoms"), searchUrls)
         assertNotNull(summaries.getValue("reading").coverTitle)

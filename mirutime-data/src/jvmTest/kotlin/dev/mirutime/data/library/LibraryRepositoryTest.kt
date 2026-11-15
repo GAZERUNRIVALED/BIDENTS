@@ -585,6 +585,48 @@ class LibraryRepositoryTest {
     }
 
     @Test
+    fun `saveBook preserves addedToLibraryAt on refresh or metadata update`() = runTest {
+        val book = book("https://site/book/refresh-keep", inLibrary = false, lastReadAt = null)
+        val bookId = repository.saveBook(book)
+        repository.addToLibrary(bookId, at = 100L)
+        val before = repository.book(bookId)!!
+        assertEquals(100L, before.addedToLibraryAt)
+
+        // Simulate metadata update / refresh saving the book at timestamp 999L
+        repository.saveBook(before.copy(title = "Updated Title", updatedAt = 999L))
+        val after = repository.book(bookId)!!
+        assertEquals("Updated Title", after.title)
+        assertEquals(100L, after.addedToLibraryAt)
+    }
+
+    @Test
+    fun `legacy row keeps addedAt as join time when refresh carries no join timestamp`() = runTest {
+        // Legacy/library row: inLibrary from the start, so addedToLibraryAt was
+        // never written and only addedAt marks the join.
+        val legacy = book("https://site/book/legacy-join", inLibrary = true, lastReadAt = null)
+            .copy(addedAt = 500L)
+        val bookId = db.libraryDao().upsertBook(legacy)
+
+        // Pre-fix the merge kept row.addedToLibraryAt alone, so a refresh with no
+        // join timestamp erased the addedAt fallback and the value became null.
+        repository.saveBook(legacy.copy(title = "x", updatedAt = 999L))
+        assertEquals(500L, repository.book(bookId)!!.addedToLibraryAt)
+    }
+
+    @Test
+    fun `in-library row without a join timestamp takes the earlier addedAt on refresh`() = runTest {
+        // Row already in the library but never stamped with a join time. A
+        // refresh that does carry one must keep the earlier moment (row.addedAt),
+        // not adopt the incoming value and move the book to the top of Added.
+        val legacy = book("https://site/book/legacy-incoming", inLibrary = true, lastReadAt = null)
+            .copy(addedAt = 500L, addedToLibraryAt = null)
+        val bookId = db.libraryDao().upsertBook(legacy)
+
+        repository.saveBook(legacy.copy(title = "x", addedToLibraryAt = 700L))
+        assertEquals(500L, repository.book(bookId)!!.addedToLibraryAt)
+    }
+
+    @Test
     fun `sessions aggregate by kind and delete book cascades`() = runTest {
         val book = book("https://site/book/cascade", inLibrary = true, lastReadAt = null)
         repository.saveBook(book)

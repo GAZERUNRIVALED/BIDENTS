@@ -408,13 +408,9 @@
 
     <!-- Shelves -->
     <string name="shelf_title">Regale</string>
-    <string name="shelf_desc">Wähle ein Regal zum Öffnen oder verwalte sie unten.</string>
-    <string name="shelf_section_view">Ansicht</string>
+    <string name="shelf_desc">Erstelle, benenne um, sortiere oder lösche Regale.</string>
     <string name="shelf_section_manage">Regale verwalten</string>
     <string name="shelf_new_btn">+ Neues Regal</string>
-    <string name="shelf_mode_list">Liste</string>
-    <string name="shelf_mode_nested">Verschachtelt</string>
-    <string name="shelf_mode_covers">Cover</string>
     <string name="shelf_new_title">Neues Regal</string>
     <string name="shelf_new_desc">Gib dem neuen Regal einen Namen. Regale nehmen an automatischen Update-Prüfungen teil, sofern du sie unten nicht ausnimmst.</string>
     <string name="shelf_edit_title">Regal bearbeiten</string>

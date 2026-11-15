@@ -140,7 +140,7 @@ class RoomLibraryPageTest {
             query = "book",
             cursor = null,
             limit = 5,
-            filters = LibraryPageFilters(shelfId = "reading"),
+            filters = LibraryPageFilters(shelfIds = setOf("reading")),
             sort = LibrarySort.LastRead,
             direction = SortDirection.Desc,
         )

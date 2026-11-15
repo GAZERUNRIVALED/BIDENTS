@@ -408,13 +408,9 @@
 
     <!-- Shelves -->
     <string name="shelf_title">Kệ</string>
-    <string name="shelf_desc">Chọn một kệ để mở, hoặc quản lý bên dưới.</string>
-    <string name="shelf_section_view">Xem</string>
+    <string name="shelf_desc">Tạo, đổi tên, sắp xếp lại hoặc xóa kệ.</string>
     <string name="shelf_section_manage">Quản lý kệ</string>
     <string name="shelf_new_btn">+ Kệ mới</string>
-    <string name="shelf_mode_list">Danh sách</string>
-    <string name="shelf_mode_nested">Lồng nhau</string>
-    <string name="shelf_mode_covers">Bìa</string>
     <string name="shelf_new_title">Kệ mới</string>
     <string name="shelf_new_desc">Đặt tên cho kệ mới. Kệ sẽ tham gia kiểm tra cập nhật tự động trừ khi bỏ qua bên dưới.</string>
     <string name="shelf_edit_title">Sửa kệ</string>

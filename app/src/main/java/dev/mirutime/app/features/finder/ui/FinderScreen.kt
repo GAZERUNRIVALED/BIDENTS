@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mirutime.app.R
+import dev.mirutime.app.design.rememberPersistedState
 import dev.mirutime.uikit.LocalMiruExtraColors
 import dev.mirutime.uikit.MiruSearchDecoration
 import dev.mirutime.uikit.MiruSize
@@ -67,9 +68,11 @@ import dev.mirutime.app.features.finder.domain.BrowseFilters
 import dev.mirutime.app.features.finder.domain.CatalogSource
 import dev.mirutime.app.features.finder.domain.LocalSources
 import dev.mirutime.app.features.finder.domain.OpdsSources
+import dev.mirutime.app.features.finder.domain.SourceSort
 import dev.mirutime.app.features.finder.domain.applyBrowse
 import dev.mirutime.app.features.finder.domain.supportsPluginTranslation
 import dev.mirutime.app.features.finder.domain.withPin
+import dev.mirutime.app.features.library.domain.ContentType
 import dev.mirutime.app.features.library.data.ImportSummary
 import dev.mirutime.app.features.library.data.PickedImportFile
 import dev.mirutime.app.features.library.ui.ImportSheet
@@ -115,7 +118,29 @@ fun FinderScreen(
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     var sources by remember { mutableStateOf<List<CatalogSource>?>(null) }
-    var filters by remember { mutableStateOf(BrowseFilters()) }
+    var filters by rememberPersistedState<BrowseFilters>(
+        key = "finder.browse_filters",
+        default = BrowseFilters(),
+        encode = { f ->
+            listOf(
+                f.types.joinToString(",") { it.name },
+                f.languages.joinToString(","),
+                f.sort.name,
+                f.descending.toString(),
+            ).joinToString(";")
+        },
+        decode = { raw ->
+            val parts = raw.split(";")
+            if (parts.size < 4) return@rememberPersistedState null
+            val types = if (parts[0].isEmpty()) emptySet() else parts[0].split(",").mapNotNull { name ->
+                runCatching { ContentType.valueOf(name) }.getOrNull()
+            }.toSet()
+            val langs = if (parts[1].isEmpty()) emptySet() else parts[1].split(",").toSet()
+            val sort = runCatching { SourceSort.valueOf(parts[2]) }.getOrDefault(SourceSort.Name)
+            val desc = parts[3].toBooleanStrictOrNull() ?: false
+            BrowseFilters(types, langs, sort, desc)
+        },
+    )
     var sheet by remember { mutableStateOf<BrowseSheetKind?>(null) }
     var importOpen by remember { mutableStateOf(false) }
     var linkOpen by remember { mutableStateOf(false) }
