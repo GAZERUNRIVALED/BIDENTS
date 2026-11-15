@@ -2745,6 +2745,10 @@ private fun AnnounceCard(
                         }
                     }
                 }
+                // Long-press copies the source title: with translation on, the
+                // rendered one is the translation and is useless for searching
+                // the source.
+                val originalTitle = book.title.trim()
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
@@ -2758,7 +2762,9 @@ private fun AnnounceCard(
                         role = Role.Button,
                         onClick = { onOpenSearch() },
                         onLongClick = {
-                            clipboard.setText(AnnotatedString(title))
+                            clipboard.setText(
+                                AnnotatedString(originalTitle.ifEmpty { title.trim() }),
+                            )
                             bookToast(
                                 context,
                                 resources.getString(R.string.book_title_copied),
@@ -2766,6 +2772,19 @@ private fun AnnounceCard(
                         },
                     ),
                 )
+                if (originalTitle.isNotEmpty() &&
+                    !originalTitle.equals(title.trim(), ignoreCase = true)
+                ) {
+                    // The source title under the translation, the way readers
+                    // show it when the metadata came from a translation.
+                    Text(
+                        text = originalTitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 if (titleOverflow || titleExpanded) {
                     Text(
                         text = stringResource(
