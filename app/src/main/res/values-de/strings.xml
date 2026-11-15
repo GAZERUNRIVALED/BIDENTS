@@ -1786,4 +1786,11 @@
     <string name="opds_reason_subscribe">Abo erforderlich</string>
     <string name="opds_reason_indirect">Nur hinter einer Landingpage</string>
     <string name="opds_reason_unsupported">Format nicht unterstützt</string>
+    <string name="shelf_all">Alle</string>
+    <string name="book_menu_more">Weitere Optionen</string>
+    <string name="book_action_change_cover">Cover ändern</string>
+    <string name="book_action_reset_cover">Cover zurücksetzen</string>
+    <string name="book_action_reload_chapters">Vollständige Kapitel-Neuerfassung</string>
+    <string name="book_cover_updated">Cover aktualisiert</string>
+    <string name="book_cover_reset">Cover auf Original zurückgesetzt</string>
 </resources>

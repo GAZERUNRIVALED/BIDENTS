@@ -3,6 +3,7 @@ package dev.mirutime.app.features.library.data
 import dev.mirutime.data.library.BookCoverEntity
 import dev.mirutime.imageloader.FetchedImage
 import java.io.File
+import java.io.IOException
 import java.util.Base64
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
@@ -343,6 +344,181 @@ class BookCoverStoreTest {
         assertNull(store.ensureCover(9L, "src", "https://cdn.test/cover.png"))
         assertFalse(File(root, "9/cover").exists())
         assertEquals("invalid image", rows.map.getValue(9L).lastError)
+    }
+
+    // A fetched cover is not a custom one: a reset must not delete it.
+    // Catches removing the `isUserOverride != true` guard in clearUserCover.
+    @Test
+    fun `clearUserCover refuses a fetched cover`() = runTest {
+        val root = temp.newFolder("covers")
+        val rows = Rows()
+        val file = File(root, "7/cover")
+        file.parentFile!!.mkdirs()
+        file.writeBytes(png)
+        val row = BookCoverEntity(
+            bookId = 7L,
+            remoteUrl = "https://cdn.test/cover.png",
+            localPath = file.absolutePath,
+            sha256 = CoverBytes.sha256Hex(png),
+            bytes = png.size.toLong(),
+            isUserOverride = false,
+        )
+        rows.map[7L] = row
+        val store = BookCoverStore(
+            root = root,
+            load = rows.load,
+            save = rows.save,
+            fetch = { _, _, _ -> FetchedImage(0) },
+            clock = { 1_000_000L },
+        )
+
+        assertFalse(store.clearUserCover(7L))
+        assertTrue(file.isFile)
+        assertArrayEquals(png, file.readBytes())
+        assertEquals(row, rows.map.getValue(7L))
+        assertNotNull(store.localCoverUrl(7L))
+    }
+
+    // Catches dropping the file delete or any of the cleared row fields.
+    @Test
+    fun `clearUserCover removes a user cover`() = runTest {
+        val root = temp.newFolder("covers")
+        val rows = Rows()
+        val file = File(root, "7/cover")
+        file.parentFile!!.mkdirs()
+        file.writeBytes(png)
+        rows.map[7L] = BookCoverEntity(
+            bookId = 7L,
+            remoteUrl = "https://cdn.test/cover.png",
+            localPath = file.absolutePath,
+            sha256 = CoverBytes.sha256Hex(png),
+            bytes = png.size.toLong(),
+            fetchedAt = 1_000L,
+            checkedAt = 1_000L,
+            isUserOverride = true,
+        )
+        val store = BookCoverStore(
+            root = root,
+            load = rows.load,
+            save = rows.save,
+            fetch = { _, _, _ -> FetchedImage(0) },
+            clock = { 1_000_000L },
+        )
+
+        assertTrue(store.clearUserCover(7L))
+        assertFalse(file.exists())
+        val row = rows.map.getValue(7L)
+        assertNull(row.localPath)
+        assertFalse(row.isUserOverride)
+        assertNull(row.sha256)
+        assertEquals(0L, row.bytes)
+        assertFalse(store.isUserOverridden(7L))
+        assertNull(store.localCoverUrl(7L))
+    }
+
+    // Magic bytes only prove a container: a truncated PNG must not become the
+    // rendered cover. Catches dropping `isDecodable` from setUserCover.
+    @Test
+    fun `setUserCover rejects magic-valid but undecodable bytes`() = runTest {
+        val root = temp.newFolder("covers")
+        val rows = Rows()
+        val store = BookCoverStore(
+            root = root,
+            load = rows.load,
+            save = rows.save,
+            fetch = { _, _, _ -> FetchedImage(0) },
+            isDecodable = { false },
+            clock = { 1_000_000L },
+        )
+
+        assertNull(store.setUserCover(7L, png))
+        assertFalse(File(root, "7/cover").exists())
+        assertNull(rows.map[7L])
+    }
+
+    // Without the persisted override the next refresh overwrites the file, so a
+    // failed row write must leave no new cover behind. Catches the swallowed
+    // `runCatching { save(updated) }`.
+    @Test
+    fun `setUserCover rolls back the file when the row write fails`() = runTest {
+        val root = temp.newFolder("covers")
+        val rows = Rows()
+        val store = BookCoverStore(
+            root = root,
+            load = rows.load,
+            save = { throw IOException("row write failed") },
+            fetch = { _, _, _ -> FetchedImage(0) },
+            clock = { 1_000_000L },
+        )
+
+        assertNull(store.setUserCover(7L, png))
+        assertFalse(File(root, "7/cover").exists())
+        assertNull(rows.map[7L])
+    }
+
+    // The file is already gone by then, so the row write failure must reach the
+    // caller instead of a "reset ok" that leaves a stale override row.
+    // Catches returning true when `save(updated)` fails in clearUserCover.
+    @Test
+    fun `clearUserCover reports failure when the row write fails`() = runTest {
+        val root = temp.newFolder("covers")
+        val rows = Rows()
+        val file = File(root, "7/cover")
+        file.parentFile!!.mkdirs()
+        file.writeBytes(png)
+        rows.map[7L] = BookCoverEntity(
+            bookId = 7L,
+            remoteUrl = "https://cdn.test/cover.png",
+            localPath = file.absolutePath,
+            sha256 = CoverBytes.sha256Hex(png),
+            bytes = png.size.toLong(),
+            isUserOverride = true,
+        )
+        val store = BookCoverStore(
+            root = root,
+            load = rows.load,
+            save = { throw IOException("row write failed") },
+            fetch = { _, _, _ -> FetchedImage(0) },
+            clock = { 1_000_000L },
+        )
+
+        assertFalse(store.clearUserCover(7L))
+    }
+
+    // A stale override flag on a row whose file vanished must not block the
+    // fetched cover: the refetch owns the file again afterwards.
+    // Catches dropping `isUserOverride = false` from the 2xx save in ensureCover.
+    @Test
+    fun `a successful refetch clears a stale user override flag`() = runTest {
+        val root = temp.newFolder("covers")
+        val rows = Rows()
+        rows.map[7L] = BookCoverEntity(
+            bookId = 7L,
+            remoteUrl = "https://cdn.test/cover.png",
+            localPath = File(root, "7/cover").absolutePath,
+            sha256 = CoverBytes.sha256Hex(png),
+            bytes = png.size.toLong(),
+            isUserOverride = true,
+        )
+        val store = BookCoverStore(
+            root = root,
+            load = rows.load,
+            save = rows.save,
+            fetch = { _, _, _ -> FetchedImage(200, png) },
+            clock = { 1_000_000L },
+        )
+
+        val uri = store.ensureCover(7L, "src", "https://cdn.test/cover.png", force = true)
+
+        assertNotNull(uri)
+        val stored = rows.map.getValue(7L)
+        assertFalse(stored.isUserOverride)
+        assertNotNull(stored.localPath)
+        val file = File(root, "7/cover")
+        assertTrue(file.isFile)
+        assertArrayEquals(png, file.readBytes())
+        assertEquals(file.absolutePath, stored.localPath)
+        assertFalse(store.isUserOverridden(7L))
     }
 
     @Test

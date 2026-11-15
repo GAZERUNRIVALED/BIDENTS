@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
@@ -69,6 +70,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.HorizontalDivider
@@ -176,6 +179,7 @@ import dev.mirutime.app.features.book.domain.BookChapter
 import dev.mirutime.app.features.book.domain.BookDetails
 import dev.mirutime.app.features.book.domain.BookDownloadOption
 import dev.mirutime.app.features.book.domain.BookReview
+import dev.mirutime.app.design.rememberPersistedEnum
 import dev.mirutime.app.features.book.domain.ChapterFilter
 import dev.mirutime.app.features.book.domain.bookActionState
 import dev.mirutime.app.features.book.domain.continueChapterTitle
@@ -188,6 +192,7 @@ import dev.mirutime.app.features.downloads.data.DownloadState
 import dev.mirutime.app.features.downloads.data.EnqueueFailure
 import dev.mirutime.app.features.downloads.data.EnqueueResult
 import dev.mirutime.app.features.library.data.LibraryDataProvider
+import dev.mirutime.app.features.library.data.MAX_COVER_BYTES
 import dev.mirutime.app.features.library.domain.ContentType
 import dev.mirutime.app.features.library.domain.Shelf
 import dev.mirutime.app.features.library.ui.shelfLabel
@@ -825,6 +830,71 @@ internal fun BookScreen(
     suspend fun reloadChapters() {
         val loaded = runCatching { provider.chapters(bookUrl) }.getOrNull() ?: return
         book = book?.copy(chapters = loaded, totalChapters = loaded.size)
+    }
+
+    var hasCustomCover by remember(bookUrl) { mutableStateOf(false) }
+    LaunchedEffect(bookUrl, retryTick) {
+        hasCustomCover = provider.hasUserCover(bookUrl)
+    }
+
+    val coverPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            ioScope.launch {
+                val bytes = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            val out = java.io.ByteArrayOutputStream()
+                            val buf = ByteArray(64 * 1024)
+                            while (true) {
+                                val n = input.read(buf)
+                                if (n < 0) break
+                                out.write(buf, 0, n)
+                                if (out.size() > MAX_COVER_BYTES) return@use null
+                            }
+                            out.toByteArray()
+                        }
+                    }.getOrNull()
+                }
+                if (bytes != null && bytes.isNotEmpty()) {
+                    when (val res = provider.setUserCover(bookUrl, bytes)) {
+                        is Outcome.Ok -> {
+                            val newCover = res.value
+                            if (newCover != null) {
+                                book = book?.copy(coverUrl = newCover)
+                                hasCustomCover = true
+                                // A new picture replaces the failed-cover card.
+                                coverFailure = null
+                                bookToast(context, resources.getString(R.string.book_cover_updated))
+                            } else {
+                                bookToast(context, resources.getString(R.string.book_cover_failed))
+                            }
+                        }
+                        is Outcome.Err -> {
+                            bookToast(context, resources.getString(R.string.book_cover_failed))
+                        }
+                    }
+                } else {
+                    bookToast(context, resources.getString(R.string.book_cover_failed))
+                }
+            }
+        }
+    }
+
+    val onResetCover: () -> Unit = {
+        ioScope.launch {
+            when (val res = provider.clearUserCover(bookUrl)) {
+                is Outcome.Ok -> {
+                    book = book?.copy(coverUrl = res.value)
+                    hasCustomCover = false
+                    bookToast(context, resources.getString(R.string.book_cover_reset))
+                }
+                is Outcome.Err -> {
+                    bookToast(context, resources.getString(R.string.book_cover_failed))
+                }
+            }
+        }
     }
 
     // A live restore replaces rows behind this page. Reload only then; the
@@ -1663,6 +1733,14 @@ internal fun BookScreen(
                     // its only action is the one the feed advertises.
                     catalogEntry = catalogEntry,
                     onOpenCatalog = { current.originCatalogUrl?.let(onOpenCatalog) },
+                    hasCustomCover = hasCustomCover,
+                    onChangeCover = {
+                        coverPickerLauncher.launch(arrayOf("image/*"))
+                    },
+                    onResetCover = onResetCover,
+                    onReloadChapters = {
+                        refreshChapters(forceFull = true)
+                    },
                 )
             }
             coverFailure?.let { report ->
@@ -2567,6 +2645,10 @@ private fun AnnounceCard(
     // and the chip names the catalogue instead of a plugin.
     catalogEntry: Boolean = false,
     onOpenCatalog: () -> Unit = {},
+    hasCustomCover: Boolean = false,
+    onChangeCover: () -> Unit = {},
+    onResetCover: () -> Unit = {},
+    onReloadChapters: () -> Unit = {},
 ) {
     val extra = LocalMiruExtraColors.current
     val context = LocalContext.current
@@ -2604,15 +2686,65 @@ private fun AnnounceCard(
                 onRetry = onCoverRetry,
             )
             Column(modifier = Modifier.weight(1f)) {
-                MiruSourceChip(
-                    text = if (book.installId.startsWith("opds:") || book.originCatalogUrl != null) {
-                        book.source
-                    } else {
-                        "${book.source} · $pluginLabel"
-                    },
-                    onClick = if (catalogEntry) onOpenCatalog else onOpenSource,
-                    contentAlignment = Alignment.TopStart,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MiruSourceChip(
+                        text = if (book.installId.startsWith("opds:") || book.originCatalogUrl != null) {
+                            book.source
+                        } else {
+                            "${book.source} · $pluginLabel"
+                        },
+                        onClick = if (catalogEntry) onOpenCatalog else onOpenSource,
+                        contentAlignment = Alignment.TopStart,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    var menuExpanded by remember { mutableStateOf(false) }
+                    Box(modifier = Modifier.align(Alignment.Top)) {
+                        MiruIconButton(
+                            icon = Icons.Filled.Settings,
+                            contentDescription = stringResource(R.string.book_menu_more),
+                            onClick = { menuExpanded = true },
+                            // Compact plate so the gear sits level with the cover
+                            // top instead of the default 40dp circle.
+                            modifier = Modifier.size(MiruSize.ButtonCompact),
+                        )
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            // A catalogue entry is not a library row yet: setting a
+                            // cover would add it silently and hit the network.
+                            if (!catalogEntry) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.book_action_change_cover)) },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onChangeCover()
+                                    },
+                                )
+                                if (hasCustomCover) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.book_action_reset_cover)) },
+                                        onClick = {
+                                            menuExpanded = false
+                                            onResetCover()
+                                        },
+                                    )
+                                }
+                            }
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.book_action_reload_chapters)) },
+                                onClick = {
+                                    menuExpanded = false
+                                    onReloadChapters()
+                                },
+                            )
+                        }
+                    }
+                }
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
@@ -3955,8 +4087,8 @@ private fun ChapterBrowser(
     onDeleteDownloads: (Set<Int>, () -> Unit) -> Unit,
     onRetryTranslation: (Int) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
-    var filter by remember { mutableStateOf(ChapterFilter.All) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var filter by rememberPersistedEnum("book.chapter_filter.${book.bookUrl}", ChapterFilter.All)
     var selection by remember { mutableStateOf(emptySet<Int>()) }
     val focusManager = LocalFocusManager.current
     // Long-press starts manual selection; the Select toolbar button is a

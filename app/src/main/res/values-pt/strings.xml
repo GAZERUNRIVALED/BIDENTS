@@ -1800,4 +1800,11 @@
     <string name="opds_reason_subscribe">assinatura necessária</string>
     <string name="opds_reason_indirect">só atrás de uma página de destino</string>
     <string name="opds_reason_unsupported">formato não suportado</string>
+    <string name="shelf_all">Tudo</string>
+    <string name="book_menu_more">Mais opções</string>
+    <string name="book_action_change_cover">Alterar capa</string>
+    <string name="book_action_reset_cover">Redefinir capa</string>
+    <string name="book_action_reload_chapters">Reanálise completa de capítulos</string>
+    <string name="book_cover_updated">Capa atualizada</string>
+    <string name="book_cover_reset">Capa redefinida para a original</string>
 </resources>

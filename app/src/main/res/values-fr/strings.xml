@@ -1801,4 +1801,11 @@
     <string name="opds_reason_subscribe">abonnement requis</string>
     <string name="opds_reason_indirect">seulement derrière une page d\'accueil</string>
     <string name="opds_reason_unsupported">format non pris en charge</string>
+    <string name="shelf_all">Tout</string>
+    <string name="book_menu_more">Plus d\'options</string>
+    <string name="book_action_change_cover">Changer la couverture</string>
+    <string name="book_action_reset_cover">Réinitialiser la couverture</string>
+    <string name="book_action_reload_chapters">Réanalyse complète des chapitres</string>
+    <string name="book_cover_updated">Couverture mise à jour</string>
+    <string name="book_cover_reset">Couverture réinitialisée</string>
 </resources>

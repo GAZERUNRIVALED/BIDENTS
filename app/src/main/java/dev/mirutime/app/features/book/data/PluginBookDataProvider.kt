@@ -4,6 +4,7 @@ import dev.mirutime.core.log.MiruLog
 import dev.mirutime.app.core.buildPluginErrorReport
 import dev.mirutime.app.core.jsonStringField
 import dev.mirutime.app.core.uriHostPath
+import dev.mirutime.app.design.removePersistedState
 import dev.mirutime.app.di.PluginGraph
 import dev.mirutime.app.di.TextFetchResult
 import dev.mirutime.app.features.book.domain.BookChapter
@@ -433,6 +434,43 @@ class PluginBookDataProvider(
         return Outcome.Ok(store.ensureCover(row.bookId, sourceId, coverUrl, force = true))
     }
 
+    override suspend fun setUserCover(bookUrl: String, bytes: ByteArray): Outcome<String?> {
+        val store = coverStore ?: return Outcome.Ok(null)
+        var row = runCatching { library?.book(bookUrl) }.getOrNull()
+        if (row == null) {
+            loadBook(bookUrl, persist = true)
+            row = runCatching { library?.book(bookUrl) }.getOrNull()
+        }
+        val targetRow = row ?: return Outcome.Ok(null)
+        val uri = store.setUserCover(targetRow.bookId, bytes)
+        return Outcome.Ok(uri)
+    }
+
+    override suspend fun clearUserCover(bookUrl: String): Outcome<String?> {
+        val store = coverStore ?: return Outcome.Ok(null)
+        val row = runCatching { library?.book(bookUrl) }.getOrNull() ?: return Outcome.Ok(null)
+        // Read the flag before clearing: it is what tells "nothing to reset"
+        // apart from "the reset happened but the source cover is unreachable".
+        val hadOverride = store.isUserOverridden(row.bookId)
+        val cleared = store.clearUserCover(row.bookId)
+        if (!cleared && !hadOverride) return Outcome.Ok(row.coverUrl)
+        // The custom cover is already gone: a failed source refetch must not
+        // report the reset as failed, only leave the stored URL in place.
+        val refreshed = store.ensureCover(row.bookId, row.installId, row.coverUrl, force = true)
+        if (refreshed == null) {
+            MiruLog.event("covers", "cover_reset", "ok" to false)
+            return Outcome.Ok(row.coverUrl)
+        }
+        MiruLog.d("covers", "event=cover-reset book=${row.bookId} result=ok")
+        return Outcome.Ok(refreshed)
+    }
+
+    override suspend fun hasUserCover(bookUrl: String): Boolean {
+        val store = coverStore ?: return false
+        val row = runCatching { library?.book(bookUrl) }.getOrNull() ?: return false
+        return store.isUserOverridden(row.bookId)
+    }
+
     // Explicit metadata refresh: the same fields loadBook writes, but always
     // re-fetched and written back. A blank field keeps its stored value so a
     // source hiccup (or a genuinely absent field) never wipes data (FR-012);
@@ -743,7 +781,8 @@ class PluginBookDataProvider(
         genresJson = buildJsonArray { meta.genres.distinct().forEach { add(it) } }.toString(),
         firstSeenAt = existing?.firstSeenAt?.takeIf { it > 0 } ?: timestamp,
         addedToLibraryAt = existing?.addedToLibraryAt
-            ?: if (built.inLibrary) timestamp else null,
+            ?: if (existing != null && existing.inLibrary) existing.addedAt
+            else if (built.inLibrary) timestamp else null,
         subtitle = meta.extras["subtitle"]?.takeIf { it.isNotBlank() },
         altTitlesJson = extraAltTitles(meta.extras),
         authorRaw = meta.author.orEmpty(),
@@ -1043,7 +1082,8 @@ class PluginBookDataProvider(
                 lastUpdateAt = base?.lastUpdateAt,
                 genresJson = base?.genresJson ?: "[]",
                 firstSeenAt = base?.firstSeenAt?.takeIf { it > 0 } ?: timestamp,
-                addedToLibraryAt = base?.addedToLibraryAt,
+                addedToLibraryAt = base?.addedToLibraryAt
+                    ?: if (base != null && base.inLibrary) base.addedAt else null,
                 subtitle = base?.subtitle,
                 altTitlesJson = base?.altTitlesJson ?: "[]",
                 authorRaw = meta.author.ifBlank { base?.authorRaw ?: "Unknown" },
@@ -2414,6 +2454,9 @@ class PluginBookDataProvider(
             chapterUrls.remove(bookUrl)
             chapterTitles.remove(bookUrl)
             invalidateChapterStatus(bookUrl)
+            // Per-book filter keys are removed with the book; a delete through a
+            // path that does not come through here may leave one stale key.
+            removePersistedState("book.chapter_filter.$bookUrl")
             var cleanupFailed = false
             if (deleted.files.isNotEmpty()) {
                 // DB commit already happened. File I/O is IO-only and a

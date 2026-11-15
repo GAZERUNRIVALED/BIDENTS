@@ -2,6 +2,7 @@ package dev.mirutime.app.features.book.data
 
 import dev.mirutime.app.core.buildPluginErrorReport
 import dev.mirutime.app.features.library.data.BookCoverStore
+import dev.mirutime.app.features.library.data.CoverBytes
 import dev.mirutime.app.features.library.data.isDeadCoverError
 import dev.mirutime.imageloader.FetchedImage
 import dev.mirutime.core.api.BookMeta
@@ -142,6 +143,7 @@ class CoverRefreshTest {
         rows: Rows,
         source: FakeSource,
         fetched: MutableList<String> = mutableListOf(),
+        fetchResult: (String) -> FetchedImage = { FetchedImage(200, png) },
     ): PluginBookDataProvider {
         rows.map.putIfAbsent(7L, BookCoverEntity(bookId = 7L, remoteUrl = "https://cdn.test/dead.png"))
         val store = BookCoverStore(
@@ -150,7 +152,7 @@ class CoverRefreshTest {
             save = rows.save,
             fetch = { _, url, _ ->
                 fetched += url
-                FetchedImage(200, png)
+                fetchResult(url)
             },
             clock = { now },
         )
@@ -263,6 +265,38 @@ class CoverRefreshTest {
 
         assertEquals(0, source.bookCalls)
         assertTrue(fetched.isEmpty())
+        assertEquals("HTTP 500", rows.map.getValue(7L).lastError)
+    }
+
+    // The custom cover IS reset even when the source cover cannot be refetched:
+    // reporting Err here would leave the UI pointing at a deleted file.
+    // Catches restoring the Outcome.Err branch in clearUserCover.
+    @Test
+    fun `reset reports success when the source refetch fails`() = runTest {
+        val root = temp.newFolder("covers")
+        val rows = Rows()
+        val source = FakeSource(Outcome.Ok(BookMeta("Book", coverUrl = "https://cdn2.test/new.png")))
+        val fetched = mutableListOf<String>()
+        val provider = provider(root, rows, source, fetched, fetchResult = { FetchedImage(500) })
+        val file = File(root, "7/cover")
+        file.parentFile!!.mkdirs()
+        file.writeBytes(png)
+        rows.map[7L] = rows.map.getValue(7L).copy(
+            localPath = file.absolutePath,
+            sha256 = CoverBytes.sha256Hex(png),
+            bytes = png.size.toLong(),
+            isUserOverride = true,
+        )
+
+        val result = provider.clearUserCover(bookUrl)
+
+        assertTrue(result is Outcome.Ok)
+        // The reset wins: the stored book cover URL is the answer, not a failure.
+        assertEquals("https://stale.test/old.png", (result as Outcome.Ok).value)
+        assertFalse(file.exists())
+        assertFalse(rows.map.getValue(7L).isUserOverride)
+        // The refetch really was attempted and really failed.
+        assertEquals(listOf("https://stale.test/old.png"), fetched)
         assertEquals("HTTP 500", rows.map.getValue(7L).lastError)
     }
 

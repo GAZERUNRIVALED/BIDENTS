@@ -1801,4 +1801,11 @@
     <string name="opds_reason_subscribe">requiere suscripción</string>
     <string name="opds_reason_indirect">solo tras una página de aterrizaje</string>
     <string name="opds_reason_unsupported">formato no compatible</string>
+    <string name="shelf_all">Todo</string>
+    <string name="book_menu_more">Más opciones</string>
+    <string name="book_action_change_cover">Cambiar portada</string>
+    <string name="book_action_reset_cover">Restablecer portada</string>
+    <string name="book_action_reload_chapters">Reanálisis completo de capítulos</string>
+    <string name="book_cover_updated">Portada actualizada</string>
+    <string name="book_cover_reset">Portada restablecida a la original</string>
 </resources>

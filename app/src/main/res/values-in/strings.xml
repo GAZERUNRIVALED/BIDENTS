@@ -1771,4 +1771,11 @@
     <string name="opds_reason_subscribe">perlu langganan</string>
     <string name="opds_reason_indirect">hanya di balik halaman pendarat</string>
     <string name="opds_reason_unsupported">format tidak didukung</string>
+    <string name="shelf_all">Semua</string>
+    <string name="book_menu_more">Opsi lainnya</string>
+    <string name="book_action_change_cover">Ubah sampul</string>
+    <string name="book_action_reset_cover">Atur ulang sampul</string>
+    <string name="book_action_reload_chapters">Urai ulang seluruh bab</string>
+    <string name="book_cover_updated">Sampul diperbarui</string>
+    <string name="book_cover_reset">Sampul dikembalikan ke aslinya</string>
 </resources>

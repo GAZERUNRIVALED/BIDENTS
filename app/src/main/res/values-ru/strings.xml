@@ -170,6 +170,12 @@
     <string name="book_chapters_loading">Загрузка глав…</string>
     <string name="book_chapters_refreshing">Обновление глав…</string>
     <string name="book_chapters_refresh_cd">Обновить главы</string>
+    <string name="book_menu_more">Дополнительно</string>
+    <string name="book_action_change_cover">Сменить обложку</string>
+    <string name="book_action_reset_cover">Сбросить обложку</string>
+    <string name="book_action_reload_chapters">Полная пересборка глав</string>
+    <string name="book_cover_updated">Обложка обновлена</string>
+    <string name="book_cover_reset">Обложка сброшена на исходную</string>
     <string name="book_chapters_full_reparse">Полная пересборка списка глав</string>
     <string name="book_chapters_refresh_failed">Не удалось обновить главы</string>
     <string name="book_chapters_refresh_failed_desc">Источник не вернул список глав. Повторите запрос.</string>

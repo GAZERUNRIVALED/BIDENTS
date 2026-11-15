@@ -106,6 +106,15 @@ interface BookDataProvider {
      */
     suspend fun refreshCover(bookUrl: String): Outcome<String?> = Outcome.Ok(null)
 
+    /** Sets a user-chosen cover for this book, preventing metadata refreshes from overwriting it. */
+    suspend fun setUserCover(bookUrl: String, bytes: ByteArray): Outcome<String?> = Outcome.Ok(null)
+
+    /** Clears the user-chosen cover, allowing subsequent refreshes to restore the source cover. */
+    suspend fun clearUserCover(bookUrl: String): Outcome<String?> = Outcome.Ok(null)
+
+    /** Returns true if the user has overridden the cover. */
+    suspend fun hasUserCover(bookUrl: String): Boolean = false
+
     /**
      * Explicit metadata refresh (FR-011/FR-012/FR-013): re-fetches title,
      * author, description, rating and cover from the source and writes the

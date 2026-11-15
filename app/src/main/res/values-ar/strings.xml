@@ -1845,4 +1845,11 @@
     <string name="opds_reason_subscribe">يتطلب اشتراكًا</string>
     <string name="opds_reason_indirect">خلف صفحة هبوط فقط</string>
     <string name="opds_reason_unsupported">الصيغة غير مدعومة</string>
+    <string name="shelf_all">الكل</string>
+    <string name="book_menu_more">المزيد من الخيارات</string>
+    <string name="book_action_change_cover">تغيير الغلاف</string>
+    <string name="book_action_reset_cover">إعادة تعيين الغلاف</string>
+    <string name="book_action_reload_chapters">إعادة تجميع الفصول كاملة</string>
+    <string name="book_cover_updated">تم تحديث الغلاف</string>
+    <string name="book_cover_reset">تمت استعادة الغلاف الأصلي</string>
 </resources>

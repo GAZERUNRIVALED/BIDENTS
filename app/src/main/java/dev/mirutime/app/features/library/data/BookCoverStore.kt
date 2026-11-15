@@ -17,7 +17,7 @@ import kotlinx.coroutines.sync.withLock
 
 // One fetched cover body is capped here; the image lane that produced it has
 // its own cap in PluginGraph.
-private const val MAX_COVER_BYTES = 16L * 1024 * 1024
+internal const val MAX_COVER_BYTES = 16L * 1024 * 1024
 
 // Library covers live in files/covers/<bookId>/cover. The remote URL is only a
 // fetch source; the local file is what the UI renders. One mutex per book keeps
@@ -104,6 +104,11 @@ class BookCoverStore(
             val at = clock()
             val row = runCatching { load(bookId) }.getOrNull()
             val local = validLocal(bookId, row)
+            if (row?.isUserOverride == true && local != null) {
+                // User has set their own cover: metadata refresh, chapters reload
+                // and automatic repairs must never overwrite it.
+                return@withLock coverUri(local, row.sha256)
+            }
             if (url == null) return@withLock local?.let { coverUri(it, row?.sha256) }
 
             // A valid local file is authoritative. Hitomi-style CDN tokens
@@ -211,6 +216,10 @@ class BookCoverStore(
                                         lastModified = result.lastModified,
                                         lastError = null,
                                         retryAt = null,
+                                        // A fetched file is never a user cover: a
+                                        // stale override flag must not survive a
+                                        // lost local file.
+                                        isUserOverride = false,
                                     ),
                                 )
                             }
@@ -276,6 +285,75 @@ class BookCoverStore(
                 true
             }
         }
+
+    // User-overridden cover: saved with isUserOverride = true so that metadata
+    // refreshes and chapter downloads never overwrite it.
+    suspend fun setUserCover(bookId: Long, bytes: ByteArray): String? =
+        withContext(Dispatchers.IO) {
+            if (bytes.size > MAX_COVER_BYTES ||
+                !CoverBytes.isValidImage(bytes) ||
+                !isDecodable(bytes)
+            ) {
+                return@withContext null
+            }
+            lockFor(bookId).withLock {
+                val at = clock()
+                val target = coverFile(bookId)
+                val written = runCatching { writeAtomic(target, bytes) }.isSuccess
+                if (!written) return@withLock null
+                val row = runCatching { load(bookId) }.getOrNull()
+                val sha = CoverBytes.sha256Hex(bytes)
+                val updated = (row ?: BookCoverEntity(bookId = bookId, remoteUrl = null)).copy(
+                    localPath = target.absolutePath,
+                    sha256 = sha,
+                    bytes = bytes.size.toLong(),
+                    isUserOverride = true,
+                    fetchedAt = at,
+                    checkedAt = at,
+                    lastError = null,
+                    retryAt = null,
+                )
+                // Without the persisted override the next refresh overwrites the
+                // file, so a failed row write must undo the new bytes.
+                if (runCatching { save(updated) }.isFailure) {
+                    target.delete()
+                    return@withLock null
+                }
+                coverUri(target, sha)
+            }
+        }
+
+    suspend fun clearUserCover(bookId: Long): Boolean =
+        withContext(Dispatchers.IO) {
+            lockFor(bookId).withLock {
+                val row = runCatching { load(bookId) }.getOrNull() ?: return@withLock false
+                // Only a user-set cover is this function's to remove; a fetched
+                // one is not a custom cover and must survive a reset.
+                if (row.isUserOverride != true) return@withLock false
+                val target = coverFile(bookId)
+                target.delete()
+                val updated = row.copy(
+                    localPath = null,
+                    isUserOverride = false,
+                    sha256 = null,
+                    bytes = 0L,
+                    fetchedAt = 0L,
+                    checkedAt = 0L,
+                )
+                val saved = runCatching { save(updated) }
+                if (saved.isFailure) {
+                    // The file is already gone, so the row must not claim a
+                    // custom cover any more: surface the failure to the caller.
+                    MiruLog.w("covers", "event=cover-clear-save-failed book=$bookId", saved.exceptionOrNull())
+                    return@withLock false
+                }
+                true
+            }
+        }
+
+    suspend fun isUserOverridden(bookId: Long): Boolean = withContext(Dispatchers.IO) {
+        runCatching { load(bookId)?.isUserOverride == true }.getOrDefault(false)
+    }
 
     private fun lockFor(bookId: Long): Mutex = locks.computeIfAbsent(bookId) { Mutex() }
 

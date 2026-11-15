@@ -96,4 +96,51 @@ class PluginBookEntityUrlTest {
 
         assertEquals("Stored", entity.title)
     }
+
+    @Test
+    fun `row builder preserves existing addedToLibraryAt on refresh`() {
+        val existingBook = existing().copy(inLibrary = true, addedAt = 50L, addedToLibraryAt = 100L)
+        val entity = PluginBookDataProvider().buildEntity(
+            bookUrl = key,
+            sourceId = installId,
+            built = details("Book").copy(inLibrary = true),
+            meta = BookMeta(title = "Book"),
+            existing = existingBook,
+            timestamp = 999L,
+        )
+
+        assertEquals(100L, entity.addedToLibraryAt)
+        assertEquals(50L, entity.addedAt)
+    }
+
+    @Test
+    fun `row builder preserves legacy addedAt when addedToLibraryAt is null on refresh`() {
+        val legacyBook = existing().copy(inLibrary = true, addedAt = 50L, addedToLibraryAt = null)
+        val entity = PluginBookDataProvider().buildEntity(
+            bookUrl = key,
+            sourceId = installId,
+            built = details("Book").copy(inLibrary = true),
+            meta = BookMeta(title = "Book"),
+            existing = legacyBook,
+            timestamp = 999L,
+        )
+
+        // Must keep 50L, never reset to 999L (now) on refresh!
+        assertEquals(50L, entity.addedToLibraryAt)
+        assertEquals(50L, entity.addedAt)
+    }
+
+    @Test
+    fun `row builder stamps current timestamp when newly added to library`() {
+        val freshEntity = PluginBookDataProvider().buildEntity(
+            bookUrl = key,
+            sourceId = installId,
+            built = details("Book").copy(inLibrary = true),
+            meta = BookMeta(title = "Book"),
+            existing = null,
+            timestamp = 999L,
+        )
+
+        assertEquals(999L, freshEntity.addedToLibraryAt)
+    }
 }

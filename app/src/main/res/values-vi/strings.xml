@@ -1771,4 +1771,11 @@
     <string name="opds_reason_subscribe">cần đăng ký</string>
     <string name="opds_reason_indirect">chỉ sau một trang đích</string>
     <string name="opds_reason_unsupported">định dạng không được hỗ trợ</string>
+    <string name="shelf_all">Tất cả</string>
+    <string name="book_menu_more">Tùy chọn khác</string>
+    <string name="book_action_change_cover">Đổi bìa</string>
+    <string name="book_action_reset_cover">Đặt lại bìa</string>
+    <string name="book_action_reload_chapters">Phân tích lại toàn bộ chương</string>
+    <string name="book_cover_updated">Đã cập nhật bìa</string>
+    <string name="book_cover_reset">Bìa đã được đặt lại về ban đầu</string>
 </resources>

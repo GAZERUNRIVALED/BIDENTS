@@ -1786,4 +1786,11 @@
     <string name="opds_reason_subscribe">abonelik gerekli</string>
     <string name="opds_reason_indirect">yalnızca bir açılış sayfasının arkasında</string>
     <string name="opds_reason_unsupported">biçim desteklenmiyor</string>
+    <string name="shelf_all">Tümü</string>
+    <string name="book_menu_more">Diğer seçenekler</string>
+    <string name="book_action_change_cover">Kapağı değiştir</string>
+    <string name="book_action_reset_cover">Kapağı sıfırla</string>
+    <string name="book_action_reload_chapters">Bölümleri tam yeniden ayrıştır</string>
+    <string name="book_cover_updated">Kapak güncellendi</string>
+    <string name="book_cover_reset">Kapak orijinale sıfırlandı</string>
 </resources>

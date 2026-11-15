@@ -154,6 +154,12 @@
     <string name="book_chapters_loading">Loading chapters…</string>
     <string name="book_chapters_refreshing">Refreshing chapters…</string>
     <string name="book_chapters_refresh_cd">Refresh chapters</string>
+    <string name="book_menu_more">More options</string>
+    <string name="book_action_change_cover">Change cover</string>
+    <string name="book_action_reset_cover">Reset cover</string>
+    <string name="book_action_reload_chapters">Full chapter reparse</string>
+    <string name="book_cover_updated">Cover updated</string>
+    <string name="book_cover_reset">Cover reset to original</string>
     <string name="book_chapters_full_reparse">Reloading the full chapter list</string>
     <string name="book_chapters_refresh_failed">Couldn\'t refresh chapters</string>
     <string name="book_chapters_refresh_failed_desc">The source did not return the chapter list. Retry to ask it again.</string>
