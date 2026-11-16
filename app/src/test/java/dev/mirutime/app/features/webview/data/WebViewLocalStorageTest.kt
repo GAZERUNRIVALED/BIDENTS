@@ -320,6 +320,40 @@ class WebViewLocalStorageTest {
     }
 
     @Test
+    fun `forget drops the mirrored session of one host only`() {
+        val store = RecordingStore()
+        val sync = WebViewLocalStorageSync(store)
+        sync.mirror(page, page, result("auth" to authJson, "theme" to "dark"))
+        val other = "https://mangalib.me/ru"
+        sync.mirror(other, other, result("auth" to "other"))
+        // What set_localStorage writes: not the browser's to delete.
+        store.set("ranobelib.me", "plugin-cache", "x")
+
+        sync.forget("ranobelib.me")
+
+        assertEquals(setOf("plugin-cache"), store.keysOf("ranobelib.me"))
+        assertEquals("other", store.get("mangalib.me", "auth"))
+        // The next sync of the same site starts from a clean index.
+        sync.mirror(page, page, result("auth" to authJson))
+        assertEquals(authJson, store.get("ranobelib.me", "auth"))
+    }
+
+    @Test
+    fun `forget drops keys a truncated dump mirrored`() {
+        val store = RecordingStore()
+        val sync = WebViewLocalStorageSync(store)
+        // Over the entry budget, so the dump is truncated: values are still
+        // mirrored, and forget() must see them through the index.
+        val many = (0 until LOCAL_STORAGE_MAX_ENTRIES + 44).map { "k$it" to "v" }.toTypedArray()
+        sync.mirror(page, page, result(*many))
+        assertTrue(store.keysOf("ranobelib.me").size > 1)
+
+        sync.forget("ranobelib.me")
+
+        assertEquals(emptySet<String>(), store.keysOf("ranobelib.me"))
+    }
+
+    @Test
     fun `sync clears everything it wrote when the page empties its storage`() {
         val store = RecordingStore()
         val sync = WebViewLocalStorageSync(store)

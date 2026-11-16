@@ -108,10 +108,14 @@ import dev.mirutime.uikit.MiruActionRow
 import dev.mirutime.uikit.MiruCard
 import dev.mirutime.uikit.MiruRowDivider
 import dev.mirutime.uikit.SkeletonBar
+import dev.mirutime.app.features.webview.data.CLEAR_PAGE_STORAGE_JS
 import dev.mirutime.app.features.webview.data.LOCAL_STORAGE_POLL_MS
 import dev.mirutime.app.features.webview.data.PAGE_TRANSLATOR_JS
 import dev.mirutime.app.features.webview.data.PageTranslationBridge
 import dev.mirutime.app.features.webview.data.WebViewLocalStorageSync
+import dev.mirutime.app.features.webview.data.cookieNames
+import dev.mirutime.app.features.webview.data.expiredCookieHeaders
+import dev.mirutime.app.features.webview.data.localStorageHostOf
 import dev.mirutime.app.features.webview.data.resolvePageTranslationFor
 import dev.mirutime.core.log.MiruLog
 import dev.mirutime.translator.TranslationManager
@@ -496,17 +500,29 @@ fun WebViewScreen(
         applyUserAgent(webView, history.getItemAtIndex(target)?.url)
     }
 
+    // Clears the site in front of the user, nothing else: the cookie store is
+    // shared with the plugin HTTP client and every other source, so an
+    // app-wide wipe (removeAllCookies) would sign the whole app out.
     fun clearSiteData() {
-        CookieManager.getInstance().removeAllCookies {
-            webView.post {
-                CookieManager.getInstance().flush()
-                webView.clearCache(true)
-                webView.reload()
+        val pageUrl = webView.url ?: liveUrl.takeIf { it.isNotBlank() }
+        val host = localStorageHostOf(pageUrl)
+        val manager = CookieManager.getInstance()
+        val names = pageUrl?.let { cookieNames(manager.getCookie(it)) }.orEmpty()
+        if (pageUrl != null) {
+            for ((target, header) in expiredCookieHeaders(pageUrl, names)) {
+                manager.setCookie(target, header)
             }
+            manager.flush()
         }
+        currentLocalStorageSync?.let { sync -> if (host != null) sync.forget(host) }
+        // Counts only: hosts, keys and values can identify a session.
+        MiruLog.event("webview", "site_data_cleared", "cookies" to names.size)
         loading = true
         failed = false
         toast(R.string.webview_clear_done)
+        // The reload waits for the page to drop its own storage: a document
+        // that survives the reload would write the session straight back.
+        webView.evaluateJavascript(CLEAR_PAGE_STORAGE_JS) { webView.reload() }
     }
 
     fun openAddress(raw: String) {

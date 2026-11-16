@@ -247,12 +247,26 @@ class WebViewLocalStorageSync(private val store: KeyValueStore) {
                 store.remove(host, key)
                 removed++
             }
-            if (previous != entries.keys) writeIndex(host, entries.keys)
         }
+        // Every returned key is in the store now and has to be in the index:
+        // forget(host) can only drop what the index names, and a truncated dump
+        // used to leave a session behind exactly when the page was big.
+        val index = if (dump.truncated) previous + entries.keys else entries.keys
+        if (index != previous) writeIndex(host, index)
         if (written + removed > 0) {
             // Counts only: hosts, keys and values can identify a session.
             MiruLog.event("webview", "storage_sync", "written" to written, "removed" to removed)
         }
+    }
+
+    // Drops what the browser mirrored for a host: the site's session is being
+    // cleared, so a plugin must stop reading it. Keys a plugin wrote itself are
+    // not ours to delete, and readIndex holds only the ones this class wrote.
+    fun forget(host: String) {
+        val keys = readIndex(host)
+        for (key in keys) store.remove(host, key)
+        store.remove(host, LOCAL_STORAGE_INDEX_KEY)
+        if (keys.isNotEmpty()) MiruLog.event("webview", "storage_forget", "removed" to keys.size)
     }
 
     private fun readIndex(host: String): Set<String> {
