@@ -137,6 +137,7 @@ import dev.mirutime.app.features.video.VideoPlayerActivity
 import dev.mirutime.app.features.video.data.VideoSourceRepository
 import dev.mirutime.app.features.video.domain.VideoRoutes
 import dev.mirutime.app.features.video.domain.chapterRoute
+import dev.mirutime.app.features.webview.data.WebViewLocalStorageSync
 import dev.mirutime.app.features.webview.ui.WebViewRoute
 import dev.mirutime.app.features.webview.ui.WebViewScreen
 
@@ -203,6 +204,13 @@ fun MiruShell(
     }
     val opdsController = remember(context) {
         (context.applicationContext as dev.mirutime.app.MiruApp).opdsController
+    }
+    // Plugins read a localStorage sign-in from the same store the in-app
+    // browser fills (get_localStorage).
+    val localStorageSync = remember(context) {
+        WebViewLocalStorageSync(
+            (context.applicationContext as dev.mirutime.app.MiruApp).pluginGraph.keyValueStore,
+        )
     }
     val opdsCatalogs by opdsController.catalogs.collectAsState()
     val downloadEngine = remember(context) {
@@ -841,6 +849,7 @@ fun MiruShell(
                     },
                     onBackAction = { webViewBackAction = it },
                     onUrlChange = { webViewCurrentUrl = it },
+                    localStorageSync = localStorageSync,
                 )
             }
             composable(

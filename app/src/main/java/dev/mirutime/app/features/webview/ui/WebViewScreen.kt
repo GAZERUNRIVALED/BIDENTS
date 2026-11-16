@@ -63,6 +63,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -106,12 +107,16 @@ import dev.mirutime.uikit.MiruActionRow
 import dev.mirutime.uikit.MiruCard
 import dev.mirutime.uikit.MiruRowDivider
 import dev.mirutime.uikit.SkeletonBar
+import dev.mirutime.app.features.webview.data.LOCAL_STORAGE_POLL_MS
 import dev.mirutime.app.features.webview.data.PAGE_TRANSLATOR_JS
 import dev.mirutime.app.features.webview.data.PageTranslationBridge
+import dev.mirutime.app.features.webview.data.WebViewLocalStorageSync
 import dev.mirutime.app.features.webview.data.resolvePageTranslationFor
 import dev.mirutime.core.log.MiruLog
 import dev.mirutime.translator.TranslationManager
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import dev.mirutime.uikit.MiruTextField
 
 // The in-app browser route. Query values are encoded at the call site.
@@ -193,6 +198,9 @@ private enum class BrowserSheet { None, Actions, ClearData }
 // and host; this route owns the browser chrome: an editable address plate,
 // navigation/history controls and page actions. System back and the header
 // back both walk the page history first, then leave the route.
+// localStorageSync mirrors the page's localStorage into the plugin store that
+// get_localStorage reads, so a sign-in made here reaches the sources; null
+// leaves that off.
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun WebViewScreen(
@@ -204,6 +212,7 @@ fun WebViewScreen(
     onClose: () -> Unit,
     onBackAction: ((() -> Unit)?) -> Unit,
     onUrlChange: (String) -> Unit = {},
+    localStorageSync: WebViewLocalStorageSync? = null,
 ) {
     val context = LocalContext.current
     val resources = LocalResources.current
@@ -245,6 +254,7 @@ fun WebViewScreen(
     // a recreation does not treat the restored route as a route change.
     var historyPath by rememberSaveable(url) { mutableStateOf(webViewPath(url)) }
 
+    val currentLocalStorageSync by rememberUpdatedState(localStorageSync)
     val currentOnUrlChange by rememberUpdatedState(onUrlChange)
     val currentClose by rememberUpdatedState(onClose)
     val currentBackAction by rememberUpdatedState(onBackAction)
@@ -277,6 +287,14 @@ fun WebViewScreen(
             address = TextFieldValue(next, TextRange(next.length))
         }
         currentOnUrlChange(next)
+    }
+
+    // Samples the page's localStorage into the plugin store
+    // (WebViewLocalStorage.kt). The browser keeps its own state, so the sync is
+    // an observer: a failed or empty sample never writes.
+    fun syncLocalStorage(view: WebView?, force: Boolean = false) {
+        if (view == null || failed) return
+        currentLocalStorageSync?.sync(view, force)
     }
 
     fun removeFullscreenView() {
@@ -378,6 +396,8 @@ fun WebViewScreen(
                     // Injected after the document settles, never during load.
                     // The script is inert until Translate is tapped.
                     view?.evaluateJavascript(PAGE_TRANSLATOR_JS, null)
+                    // A sign-in that just finished has written its session by now.
+                    syncLocalStorage(view, force = true)
                 }
 
                 // SPA history.pushState()/replaceState() fires neither page
@@ -386,6 +406,7 @@ fun WebViewScreen(
                     if (view != null && url != null) {
                         applyUserAgent(view, url)
                         restartTranslationAfterRouteChange(view, url)
+                        syncLocalStorage(view)
                     }
                     publishUrl(url ?: view?.url)
                     refreshHistory(view)
@@ -552,6 +573,24 @@ fun WebViewScreen(
             refreshHistory(webView)
         } else {
             currentClose()
+        }
+    }
+
+    // A sign-in that only writes localStorage fires no page callback, so the
+    // open page is also sampled while it sits idle.
+    LaunchedEffect(webView) {
+        if (currentLocalStorageSync == null) return@LaunchedEffect
+        while (true) {
+            delay(LOCAL_STORAGE_POLL_MS)
+            // The route can be torn down under a pending sample; a WebView that
+            // is already gone must not take the screen down with it.
+            try {
+                syncLocalStorage(webView)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                MiruLog.w("webview", "storage_sync_failed", error)
+            }
         }
     }
 

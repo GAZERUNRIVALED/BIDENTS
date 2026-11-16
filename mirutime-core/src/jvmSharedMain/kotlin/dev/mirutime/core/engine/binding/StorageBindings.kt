@@ -101,9 +101,11 @@ class StorageBindings(
 
     // NoveLA LuaSourceLoader.kt:956-970: the first arg is a URL whose host
     // names the entry; a bare host passes through unchanged.
+    // Lowercase, because the in-app browser fills these namespaces with a
+    // lowercase host; a plugin passing a mixed-case URL still finds them.
     private fun hostOf(urlOrHost: String): String = try {
-        java.net.URI(urlOrHost).host ?: urlOrHost
+        (java.net.URI(urlOrHost).host ?: urlOrHost).lowercase()
     } catch (_: Exception) {
-        urlOrHost
+        urlOrHost.lowercase()
     }
 }

@@ -50,6 +50,22 @@ class StorageBindingsTest {
     }
 
     @Test
+    fun `localStorage namespace is the lowercase host`() {
+        // The in-app browser fills these entries under a lowercase host, so a
+        // plugin that passes a mixed-case URL has to land on the same namespace.
+        val store = FakeKeyValueStore()
+        store.set("a.example", "token", "abc123")
+        val s = session(
+            "src-1",
+            """function main() return get_localStorage("https://A.Example/page", "token") end""",
+            kv = store,
+        )
+        val r = s.call("main", emptyList())
+        check(r.error == null) { r.error!!.toString() }
+        assertEquals(LuaData.LuaStr("abc123"), r.data)
+    }
+
+    @Test
     fun `localStorage missing key returns nil`() {
         val s = session("src-1", """function main() return get_localStorage("https://a.example/", "nope") end""")
         val r = s.call("main", emptyList())

@@ -7,6 +7,7 @@ import dev.mirutime.core.host.CookieStore
 import dev.mirutime.core.host.FileSystem
 import dev.mirutime.app.features.settings.data.PluginKvBackup
 import dev.mirutime.app.features.settings.data.PluginKvBackupStore
+import dev.mirutime.app.features.webview.data.isBrowserStorageNamespace
 import dev.mirutime.app.features.settings.data.mergePluginKv
 import dev.mirutime.core.host.KeyValueStore
 import dev.mirutime.core.host.Logger
@@ -152,7 +153,12 @@ class PrefsKeyValueStore(context: Context) : KeyValueStore, PluginKvBackupStore 
     }
 
     override fun snapshot(): PluginKvBackup = PluginKvBackup(
+        // Keys are stored verbatim as "<namespace>:<key>". Site sessions the
+        // in-app browser mirrored (host namespace) stay out: a plaintext backup
+        // must not carry sign-ins, and the browser refills them on the next
+        // visit.
         entries = prefs.all.mapNotNull { (key, value) ->
+            if (isBrowserStorageNamespace(key.substringBefore(':'))) return@mapNotNull null
             (value as? String)?.let { key to it }
         }.toMap(),
     )
