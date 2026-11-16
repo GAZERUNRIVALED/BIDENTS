@@ -1452,6 +1452,8 @@
     <string name="webview_clear_address">Clear address</string>
     <string name="webview_actions">Browser actions</string>
     <string name="webview_actions_desc">Page tools and data for this browser.</string>
+    <string name="webview_exit">Exit browser</string>
+    <string name="webview_exit_desc">Leave without going back page by page.</string>
     <string name="webview_copy_url">Copy link</string>
     <string name="webview_copy_url_desc">Copy the page address.</string>
     <string name="webview_paste_open">Paste and open</string>

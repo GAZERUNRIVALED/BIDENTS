@@ -1465,6 +1465,8 @@
     <string name="webview_clear_address">Очистить адрес</string>
     <string name="webview_actions">Действия браузера</string>
     <string name="webview_actions_desc">Инструменты страницы и данные этого браузера.</string>
+    <string name="webview_exit">Выйти из браузера</string>
+    <string name="webview_exit_desc">Выйти сразу, не возвращаясь по страницам.</string>
     <string name="webview_copy_url">Копировать ссылку</string>
     <string name="webview_copy_url_desc">Скопировать адрес страницы.</string>
     <string name="webview_paste_open">Вставить и открыть</string>

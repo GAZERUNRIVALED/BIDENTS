@@ -1441,6 +1441,8 @@
     <string name="webview_clear_address">Adresse leeren</string>
     <string name="webview_actions">Browser-Aktionen</string>
     <string name="webview_actions_desc">Seitenwerkzeuge und Daten für diesen Browser.</string>
+    <string name="webview_exit">Browser verlassen</string>
+    <string name="webview_exit_desc">Verlassen, ohne Seite für Seite zurückzugehen.</string>
     <string name="webview_copy_url">Link kopieren</string>
     <string name="webview_copy_url_desc">Die Seitenadresse kopieren.</string>
     <string name="webview_paste_open">Einfügen und öffnen</string>

@@ -42,6 +42,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
@@ -828,6 +829,16 @@ fun WebViewScreen(
             description = stringResource(R.string.webview_actions_desc),
             onClose = { sheet = BrowserSheet.None },
         ) {
+            MiruActionRow(
+                icon = Icons.AutoMirrored.Filled.ExitToApp,
+                title = stringResource(R.string.webview_exit),
+                subtitle = stringResource(R.string.webview_exit_desc),
+                onClick = {
+                    sheet = BrowserSheet.None
+                    currentClose()
+                },
+            )
+            MiruRowDivider()
             MiruActionRow(
                 icon = Icons.Filled.ContentCopy,
                 title = stringResource(R.string.webview_copy_url),

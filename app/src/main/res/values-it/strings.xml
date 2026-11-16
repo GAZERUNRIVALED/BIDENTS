@@ -1452,6 +1452,8 @@
     <string name="webview_clear_address">Cancella indirizzo</string>
     <string name="webview_actions">Azioni del browser</string>
     <string name="webview_actions_desc">Strumenti della pagina e dati di questo browser.</string>
+    <string name="webview_exit">Esci dal browser</string>
+    <string name="webview_exit_desc">Esci senza tornare indietro pagina per pagina.</string>
     <string name="webview_copy_url">Copia link</string>
     <string name="webview_copy_url_desc">Copia l\'indirizzo della pagina.</string>
     <string name="webview_paste_open">Incolla e apri</string>

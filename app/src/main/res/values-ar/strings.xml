@@ -1484,6 +1484,8 @@
     <string name="webview_clear_address">مسح العنوان</string>
     <string name="webview_actions">إجراءات المتصفح</string>
     <string name="webview_actions_desc">أدوات الصفحة وبيانات هذا المتصفح.</string>
+    <string name="webview_exit">الخروج من المتصفح</string>
+    <string name="webview_exit_desc">الخروج دون الرجوع صفحة تلو الأخرى.</string>
     <string name="webview_copy_url">نسخ الرابط</string>
     <string name="webview_copy_url_desc">نسخ عنوان الصفحة.</string>
     <string name="webview_paste_open">لصق وفتح</string>

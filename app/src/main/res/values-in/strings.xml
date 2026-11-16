@@ -1430,6 +1430,8 @@
     <string name="webview_clear_address">Bersihkan alamat</string>
     <string name="webview_actions">Tindakan peramban</string>
     <string name="webview_actions_desc">Alat halaman dan data untuk peramban ini.</string>
+    <string name="webview_exit">Keluar dari peramban</string>
+    <string name="webview_exit_desc">Keluar tanpa kembali halaman demi halaman.</string>
     <string name="webview_copy_url">Salin tautan</string>
     <string name="webview_copy_url_desc">Salin alamat halaman.</string>
     <string name="webview_paste_open">Tempel dan buka</string>

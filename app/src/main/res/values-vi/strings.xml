@@ -1430,6 +1430,8 @@
     <string name="webview_clear_address">Xóa địa chỉ</string>
     <string name="webview_actions">Hành động trình duyệt</string>
     <string name="webview_actions_desc">Công cụ trang và dữ liệu cho trình duyệt này.</string>
+    <string name="webview_exit">Thoát trình duyệt</string>
+    <string name="webview_exit_desc">Thoát ngay, không cần quay lại từng trang.</string>
     <string name="webview_copy_url">Sao chép liên kết</string>
     <string name="webview_copy_url_desc">Sao chép địa chỉ trang.</string>
     <string name="webview_paste_open">Dán và mở</string>

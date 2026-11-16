@@ -1441,6 +1441,8 @@
     <string name="webview_clear_address">Adresi temizle</string>
     <string name="webview_actions">Tarayıcı işlemleri</string>
     <string name="webview_actions_desc">Bu tarayıcı için sayfa araçları ve veriler.</string>
+    <string name="webview_exit">Tarayıcıdan çık</string>
+    <string name="webview_exit_desc">Sayfa sayfa geri gitmeden çık.</string>
     <string name="webview_copy_url">Bağlantıyı kopyala</string>
     <string name="webview_copy_url_desc">Sayfa adresini kopyala.</string>
     <string name="webview_paste_open">Yapıştır ve aç</string>
