@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -26,11 +27,16 @@ fun MiruPickerHeader(
     text: String,
     modifier: Modifier = Modifier,
     preserveCase: Boolean = false,
+    // One line is the default for section headers: a starved width must
+    // ellipsize the label, never stack it one character per line.
+    maxLines: Int = 1,
 ) {
     Text(
         text = if (preserveCase) text else text.uppercase(),
         style = MaterialTheme.typography.labelSmall,
         color = LocalMiruExtraColors.current.muted,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
         modifier = modifier,
     )
 }

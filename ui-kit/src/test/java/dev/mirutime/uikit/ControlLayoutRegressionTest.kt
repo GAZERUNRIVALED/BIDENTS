@@ -24,6 +24,18 @@ class ControlLayoutRegressionTest {
     }
 
     @Test
+    fun `a long section summary cannot collapse its header title`() {
+        // A preset's text filter can be hundreds of characters; measured
+        // unweighted it took the whole row and left the title at zero width,
+        // rendering it one character per line.
+        val sheet = source("AppBottomSheet").substringAfter("private fun CollapsibleSheetSection(")
+            .substringBefore("private fun Modifier.sheetScrollIndicator(")
+        assertTrue(sheet.contains("contentAlignment = Alignment.CenterEnd"))
+        assertTrue(sheet.contains(".weight(1f)"))
+        assertTrue(source("MiruPickerRows").contains("overflow = TextOverflow.Ellipsis"))
+    }
+
+    @Test
     fun `sheet budgets the native handle and owns navigation insets inside the cap`() {
         val sheet = source("AppBottomSheet")
         assertFalse("A screen-height cap on only the inner column is not a whole-sheet cap", sheet.contains("LocalConfiguration.current.screenHeightDp"))

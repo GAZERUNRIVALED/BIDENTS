@@ -421,14 +421,25 @@ private fun CollapsibleSheetSection(
                 modifier = Modifier.weight(1f),
             )
             if (!summary.isNullOrBlank()) {
-                Text(
-                    text = summary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = LocalMiruExtraColors.current.muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = MiruSpace.S),
-                )
+                // Weighted slot, end-aligned: a long value (a preset's text
+                // filter runs to hundreds of characters) is measured in the
+                // weighted pass with its share, so it can never starve the
+                // title to a zero-width column, and it still sits next to the
+                // chevron instead of drifting to the middle.
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = MiruSpace.S),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Text(
+                        text = summary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LocalMiruExtraColors.current.muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             Icon(
                 imageVector = Icons.Filled.ExpandMore,
