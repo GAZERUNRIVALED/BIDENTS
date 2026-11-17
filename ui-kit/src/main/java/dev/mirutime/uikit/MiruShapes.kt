@@ -54,7 +54,7 @@ val CoverInset = 4.dp
 object MiruSize {
     val Touch = 48.dp
     val Control = 40.dp      // round icon buttons and field rows (visual), 6dp radius
-    val Chip = 24.dp         // filter chips (visual; at least 48dp touch)
+    val Chip = 24.dp         // tag faces and track lanes (filter chips use RowCompact)
     val SplitProgress = 56.dp // split-progress pill (chapters read / total)
     val SplitProgressHeight = 16.dp
     val Button = 40.dp       // secondary buttons / plate pills

@@ -15,12 +15,12 @@ class ControlLayoutRegressionTest {
     @Test
     fun `chip reserves a minimum target independently of its intrinsic face`() {
         val chip = source("FilterChips").substringAfter("fun MiruFilterChip(")
-            .substringBefore("// Right-edge fade")
+            .substringBefore("fun MiruChipFlow(")
         assertFalse("The old 40dp outer chip clips the minimum target", chip.contains(".height(40.dp)"))
         assertTrue(chip.contains("minimumInteractiveComponentSize()"))
-        assertTrue(chip.contains("touchTarget: Dp = MiruSize.Touch"))
+        assertTrue(chip.contains("touchTarget: Dp = compactTouchTarget(MiruSize.RowCompact)"))
         assertTrue(chip.contains("LocalMinimumInteractiveComponentSize provides touchTarget"))
-        assertTrue(chip.contains("heightIn(min = MiruSize.Chip)"))
+        assertTrue(chip.contains("heightIn(min = MiruSize.RowCompact)"))
     }
 
     @Test

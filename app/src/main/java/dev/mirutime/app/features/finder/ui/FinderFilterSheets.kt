@@ -1,11 +1,8 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package dev.mirutime.app.features.finder.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,6 +36,7 @@ import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.uikit.MiruButton
 import dev.mirutime.uikit.MiruButtonStyle
+import dev.mirutime.uikit.MiruChipFlow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.app.features.finder.domain.BrowseFilters
 import dev.mirutime.app.features.finder.domain.CatalogSource
@@ -109,10 +107,7 @@ fun BrowseFilterSheet(
     ) {
         when (kind) {
             BrowseSheetKind.Type -> {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                    verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
-                ) {
+                MiruChipFlow {
                     PluginContentTypes.forEach { type ->
                         MiruFilterChip(
                             selected = type in draft.types,
@@ -127,10 +122,7 @@ fun BrowseFilterSheet(
                 }
             }
             BrowseSheetKind.Language -> {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                    verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
-                ) {
+                MiruChipFlow {
                     languages.forEach { language ->
                         MiruFilterChip(
                             selected = language in draft.languages,

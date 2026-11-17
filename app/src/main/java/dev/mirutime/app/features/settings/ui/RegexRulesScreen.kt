@@ -103,6 +103,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 // Touch box shared by every compact control in a rule line: the 24dp chip
 // face plus its 8dp ring, floored at 32dp.
 private val RuleControlTouch = compactTouchTarget(MiruSize.Chip)
+// Filter chips carry a 32dp face now, so their ring comes from that surface.
+private val RuleChipTouch = compactTouchTarget(MiruSize.RowCompact)
 
 // Regex cleanup: one compact screen for the global list and one novel's list.
 // Every rule is a single line (drag, switch, pattern, replacement, [W],
@@ -293,13 +295,13 @@ fun RegexRulesScreen(
                             selected = !bookScope,
                             onClick = { bookScope = false },
                             label = stringResource(R.string.st_rx_global),
-                            touchTarget = RuleControlTouch,
+                            touchTarget = RuleChipTouch,
                         )
                         MiruFilterChip(
                             selected = bookScope,
                             onClick = { bookScope = true },
                             label = stringResource(R.string.st_rx_book),
-                            touchTarget = RuleControlTouch,
+                            touchTarget = RuleChipTouch,
                         )
                     } else {
                         // The global settings entry has no book scope, but the
@@ -308,7 +310,7 @@ fun RegexRulesScreen(
                             selected = true,
                             onClick = {},
                             label = stringResource(R.string.st_rx_global),
-                            touchTarget = RuleControlTouch,
+                            touchTarget = RuleChipTouch,
                         )
                     }
                     if (rules.isNotEmpty()) {
@@ -327,19 +329,19 @@ fun RegexRulesScreen(
                             importLauncher.launch(arrayOf("application/json", "text/plain"))
                         },
                         label = stringResource(R.string.st_rx_import),
-                        touchTarget = RuleControlTouch,
+                        touchTarget = RuleChipTouch,
                     )
                     MiruFilterChip(
                         selected = false,
                         onClick = { exportLauncher.launch("regex-rules.json") },
                         label = stringResource(R.string.st_rx_export),
-                        touchTarget = RuleControlTouch,
+                        touchTarget = RuleChipTouch,
                     )
                     MiruFilterChip(
                         selected = false,
                         onClick = { clearOpen = true },
                         label = stringResource(R.string.st_rx_clear),
-                        touchTarget = RuleControlTouch,
+                        touchTarget = RuleChipTouch,
                     )
                 }
                 if (wrapToolbar) {
@@ -387,7 +389,7 @@ fun RegexRulesScreen(
                         selected = false,
                         onClick = { previewOpen = true },
                         label = stringResource(R.string.st_rx_preview),
-                        touchTarget = RuleControlTouch,
+                        touchTarget = RuleChipTouch,
                     )
                 }
                 RuleDivider()
@@ -404,7 +406,7 @@ fun RegexRulesScreen(
                                 selected = applyTo == target,
                                 onClick = { setApplyTo(target) },
                                 label = applyToChipLabel(target),
-                                touchTarget = RuleControlTouch,
+                                touchTarget = RuleChipTouch,
                             )
                         }
                 }

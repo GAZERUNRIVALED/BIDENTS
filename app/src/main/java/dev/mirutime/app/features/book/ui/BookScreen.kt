@@ -155,6 +155,7 @@ import dev.mirutime.uikit.MiruActionRow
 import dev.mirutime.uikit.MiruButton
 import dev.mirutime.uikit.MiruButtonStyle
 import dev.mirutime.uikit.MiruCompactButton
+import dev.mirutime.uikit.MiruChipFlow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.MiruIconButton
 import dev.mirutime.uikit.MiruSearchBar
@@ -4098,7 +4099,7 @@ private fun LayoutCoordinates.positionInWindowUnclipped(): Offset {
 // Chapter browser: search field, the Download / Select / Last read buttons and
 // filter chips, then the chapter list in its own scroll window (trails the
 // READING ORDER switch). The selection bar floats over that window's bottom.
-@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ChapterBrowser(
     book: BookDetails,
@@ -4353,10 +4354,7 @@ private fun ChapterBrowser(
                 lastReadButton(Modifier.weight(1f))
             }
         }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-            verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
-        ) {
+        MiruChipFlow {
             MiruFilterChip(
                 selected = filter == ChapterFilter.All,
                 onClick = {
@@ -4364,7 +4362,6 @@ private fun ChapterBrowser(
                     filter = ChapterFilter.All
                 },
                 label = stringResource(R.string.book_filter_all),
-                touchTarget = MiruSize.RowDense,
             )
             MiruFilterChip(
                 selected = filter == ChapterFilter.Read,
@@ -4373,7 +4370,6 @@ private fun ChapterBrowser(
                     filter = ChapterFilter.Read
                 },
                 label = stringResource(R.string.book_filter_read),
-                touchTarget = MiruSize.RowDense,
             )
             MiruFilterChip(
                 selected = filter == ChapterFilter.Unread,
@@ -4382,7 +4378,6 @@ private fun ChapterBrowser(
                     filter = ChapterFilter.Unread
                 },
                 label = stringResource(R.string.book_filter_unread),
-                touchTarget = MiruSize.RowDense,
             )
         }
         val scrollbarDragThumbTop = remember { mutableStateOf<Float?>(null) }

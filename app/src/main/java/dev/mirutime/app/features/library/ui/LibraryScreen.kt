@@ -11,8 +11,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -82,6 +80,7 @@ import dev.mirutime.app.design.components.CardStylePicker
 import dev.mirutime.uikit.MiruSearchBar
 import dev.mirutime.uikit.CardProgressBar
 import dev.mirutime.uikit.ChipRail
+import dev.mirutime.uikit.MiruChipFlow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.MiruButton
 import dev.mirutime.uikit.MiruButtonStyle
@@ -1004,7 +1003,9 @@ fun LibraryScreen(
                 ),
         ) {
             ScrollToTopButton(
-                onClick = { ioScope.launch { listState.animateScrollToItem(0) } },
+                onClick = {
+                    ioScope.launch { listState.animateScrollToItem(0) }
+                },
             )
         }
     }
@@ -1684,7 +1685,6 @@ private fun FilterSheet(
 // Sort options use the same selected chip language as Grid/CARDS: the
 // chosen chip is accent-filled and carries the direction arrow; tapping it
 // again flips direction. No separate check mark or lookalike rows.
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SortOptions(
     sort: LibrarySort,
@@ -1692,10 +1692,7 @@ private fun SortOptions(
     onSort: (LibrarySort) -> Unit,
 ) {
     Column {
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-            verticalArrangement = Arrangement.spacedBy(MiruSpace.S),
-        ) {
+        MiruChipFlow {
             LibrarySort.entries.forEach { option ->
                 val selected = sort == option
                 MiruFilterChip(
@@ -1727,7 +1724,6 @@ private fun GenresOptions(
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SourcesOptions(
     selected: Set<String>,
@@ -1735,10 +1731,7 @@ private fun SourcesOptions(
     onToggle: (String) -> Unit,
     onClearAll: () -> Unit,
 ) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-        verticalArrangement = Arrangement.spacedBy(MiruSpace.S),
-    ) {
+    MiruChipFlow {
         MiruFilterChip(
             selected = selected.isEmpty(),
             onClick = onClearAll,
@@ -1755,14 +1748,10 @@ private fun SourcesOptions(
 }
 
 // Single-select sets speak chips (the app's one chip language), not boxes.
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TypeOptions(type: ContentType?, onType: (ContentType?) -> Unit) {
     val options = listOf(null) + ContentType.entries
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-        verticalArrangement = Arrangement.spacedBy(MiruSpace.S),
-    ) {
+    MiruChipFlow {
         options.forEach { option ->
             MiruFilterChip(
                 selected = type == option,
@@ -1773,13 +1762,9 @@ private fun TypeOptions(type: ContentType?, onType: (ContentType?) -> Unit) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LayoutOptions(layout: LayoutMode, onLayout: (LayoutMode) -> Unit) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-        verticalArrangement = Arrangement.spacedBy(MiruSpace.S),
-    ) {
+    MiruChipFlow {
         LayoutMode.entries.forEach { option ->
             MiruFilterChip(
                 selected = layout == option,
@@ -1824,6 +1809,7 @@ internal fun shouldShowScrollToTop(
     firstVisibleItemIndex: Int,
     visibleItemCount: Int,
 ): Boolean = visibleItemCount > 0 && firstVisibleItemIndex >= visibleItemCount
+
 
 // A pinned sticky header is prepended to visibleItemsInfo. Count only rows
 // from firstVisibleItemIndex on, otherwise the header row inflates the

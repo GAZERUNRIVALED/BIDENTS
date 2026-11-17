@@ -24,6 +24,9 @@ class ChipRailContractTest {
         val screen = source("src/main/java/dev/mirutime/app/features/migration/ui/MigrationScreen.kt")
         assertFalse(steps.contains("FlowRow("))
         assertFalse(screen.contains("FlowRow("))
+        // The shared chip flow wraps too; guard it by name.
+        assertFalse(steps.contains("MiruChipFlow("))
+        assertFalse(screen.contains("MiruChipFlow("))
         assertTrue(steps.contains("ChipRail {"))
         assertTrue(screen.contains("ChipRail {"))
     }

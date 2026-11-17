@@ -1,9 +1,5 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package dev.mirutime.app.features.finder.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,10 +8,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import dev.mirutime.app.R
-import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.uikit.MiruButton
 import dev.mirutime.uikit.MiruButtonStyle
+import dev.mirutime.uikit.MiruChipFlow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.SheetSection
 import dev.mirutime.app.features.finder.domain.ExtensionFilters
@@ -67,10 +63,7 @@ fun ExtensionFilterSheet(
         },
     ) {
         SheetSection(title = stringResource(R.string.finder_btn_type)) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
-            ) {
+            MiruChipFlow {
                 PluginContentTypes.forEach { type ->
                     MiruFilterChip(
                         selected = type in draft.types,
@@ -85,10 +78,7 @@ fun ExtensionFilterSheet(
             }
         }
         SheetSection(title = stringResource(R.string.finder_btn_language)) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
-            ) {
+            MiruChipFlow {
                 languages.forEach { language ->
                     MiruFilterChip(
                         selected = language in draft.languages,
@@ -108,10 +98,7 @@ fun ExtensionFilterSheet(
         }
         if (showStatus) {
             SheetSection(title = stringResource(R.string.finder_status_title)) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                    verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
-                ) {
+                MiruChipFlow {
                     ExtensionStatus.entries.forEach { status ->
                         MiruFilterChip(
                             selected = draft.status == status,

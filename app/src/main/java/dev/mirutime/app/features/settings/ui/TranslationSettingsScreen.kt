@@ -1,10 +1,6 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package dev.mirutime.app.features.settings.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +27,7 @@ import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.uikit.ChipOption
 import dev.mirutime.uikit.ChipRow
+import dev.mirutime.uikit.MiruChipFlow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.MiruRowDivider
 import dev.mirutime.uikit.MiruSectionCard
@@ -542,9 +539,7 @@ fun TranslationSettingsScreen(
 
 @Composable
 private fun ModelChips(models: List<String>, selected: String, onPick: (String) -> Unit) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-        verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
+    MiruChipFlow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MiruSpace.L)

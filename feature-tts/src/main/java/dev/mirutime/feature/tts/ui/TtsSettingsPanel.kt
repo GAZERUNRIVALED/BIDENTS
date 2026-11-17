@@ -97,7 +97,6 @@ import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.uikit.ChipRail
 import dev.mirutime.uikit.MiruFilterChip
-import dev.mirutime.uikit.compactTouchTarget
 import dev.mirutime.uikit.MiruLabeledSliderRow
 import dev.mirutime.uikit.MiruRadius
 import dev.mirutime.uikit.SheetHeaderAction
@@ -889,7 +888,6 @@ private fun SleepTimerRow(
                     onClick = { onPreset(preset) },
                     label = presetLabel(preset),
                     enabled = enabled,
-                    touchTarget = compactTouchTarget(MiruSize.Chip),
                 )
             }
         }

@@ -1,9 +1,6 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package dev.mirutime.app.features.book.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +27,7 @@ import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.app.R
 import dev.mirutime.uikit.LocalMiruExtraColors
 import dev.mirutime.uikit.AppBottomSheet
+import dev.mirutime.uikit.MiruChipFlow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.SheetSection
 import dev.mirutime.app.features.book.domain.BookDetails
@@ -230,10 +228,7 @@ fun SelectChaptersSheet(
             color = LocalMiruExtraColors.current.muted,
             modifier = Modifier.padding(top = MiruSpace.L, bottom = 8.dp),
         )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-            verticalArrangement = Arrangement.spacedBy(MiruSpace.S),
-        ) {
+        MiruChipFlow {
             RangeActionChip(
                 action = ChapterRangeAction.Translate,
                 selected = action,

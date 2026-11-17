@@ -31,6 +31,7 @@ import dev.mirutime.app.features.migration.domain.migrationSourceLanguages
 import dev.mirutime.data.library.migration.BookMigrationOptions
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.uikit.LocalMiruExtraColors
+import dev.mirutime.uikit.MiruChipFlow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.MiruRowDivider
 import dev.mirutime.uikit.MiruSpace
@@ -136,9 +137,7 @@ fun MigrationFilterSheet(
             }
 
             if (selectedSources.isNotEmpty()) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                    verticalArrangement = Arrangement.spacedBy(MiruSpace.S),
+                MiruChipFlow(
                     modifier = Modifier.padding(bottom = MiruSpace.S),
                 ) {
                     selectedSources.forEach { source ->
@@ -152,10 +151,7 @@ fun MigrationFilterSheet(
             }
 
             MigrationFilterLabel(stringResource(R.string.migration_filter_language))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                verticalArrangement = Arrangement.spacedBy(MiruSpace.S),
-            ) {
+            MiruChipFlow {
                 MiruFilterChip(
                     selected = languages.isEmpty(),
                     onClick = { languages = emptySet() },
@@ -178,10 +174,7 @@ fun MigrationFilterSheet(
 
             if (availableTypes.size > 1) {
                 MigrationFilterLabel(stringResource(R.string.migration_filter_type))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                    verticalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                ) {
+                MiruChipFlow {
                     MiruFilterChip(
                         selected = types.isEmpty(),
                         onClick = { types = emptySet() },

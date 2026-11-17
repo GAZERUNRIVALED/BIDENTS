@@ -1,10 +1,6 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package dev.mirutime.app.features.finder.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -49,6 +45,7 @@ import dev.mirutime.app.features.finder.domain.withSort
 import dev.mirutime.uikit.FilterChipGroup
 import dev.mirutime.uikit.ChipOption
 import dev.mirutime.uikit.LocalMiruExtraColors
+import dev.mirutime.uikit.MiruChipFlow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.MiruSize
 import dev.mirutime.uikit.MiruSpace
@@ -159,9 +156,7 @@ private fun SelectFilter(
         preserveCase = true,
     ) {
         if (filter.options.size <= 8) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
+            MiruChipFlow(
                 modifier = Modifier.padding(vertical = MiruSpace.Xs),
             ) {
                 filter.options.forEach { option ->
@@ -219,10 +214,7 @@ private fun TristateFilter(
         mapOf<String, PluginFilterValue>(filter.key to PluginFilterValue.Tristate(states))
     }
     SheetSection(title = filter.label, preserveCase = true) {
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-            verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
-        ) {
+        MiruChipFlow {
             filter.options.forEach { option ->
                 val state = states[option.value] ?: TriState.Neutral
                 MiruFilterChip(
@@ -284,9 +276,7 @@ private fun TextFilter(
         // Optional inline hints (NoveLA text_history): only while the field is
         // empty, so a suggestion never fights what the user is typing.
         if (text.isBlank() && history.isNotEmpty()) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
+            MiruChipFlow(
                 modifier = Modifier.padding(top = MiruSpace.S),
             ) {
                 history.take(5).forEach { entry ->
@@ -327,10 +317,7 @@ private fun TagInputFilter(
 
     SheetSection(title = filter.label, preserveCase = true) {
         if (selected.isNotEmpty()) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
-            ) {
+            MiruChipFlow {
                 selected.forEach { tag ->
                     val label = filter.options.firstOrNull { it.value == tag }?.label ?: tag
                     MiruFilterChip(
@@ -356,9 +343,7 @@ private fun TagInputFilter(
             plate = false,
         )
         if (suggestions.isNotEmpty() || customAllowed) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-                verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
+            MiruChipFlow(
                 modifier = Modifier.padding(top = MiruSpace.S),
             ) {
                 suggestions.forEach { option ->

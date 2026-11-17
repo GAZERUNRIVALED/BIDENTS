@@ -1,12 +1,9 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package dev.mirutime.app.features.migration.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -78,6 +75,7 @@ import dev.mirutime.data.library.migration.BookMigrationResult
 import dev.mirutime.uikit.CardProgressBar
 import dev.mirutime.uikit.LocalMiruExtraColors
 import dev.mirutime.uikit.LocalMiruLocale
+import dev.mirutime.uikit.MiruChipFlow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.MiruButton
 import dev.mirutime.uikit.MiruButtonStyle
@@ -498,9 +496,7 @@ fun MigrationTargetCard(
         )
         // Same chip language as the step header; no text-link button next to
         // a chip, no action hidden in the section title.
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(MiruSpace.CardGap),
-            verticalArrangement = Arrangement.spacedBy(MiruSpace.CardGap),
+        MiruChipFlow(
             modifier = Modifier.padding(top = MiruSpace.S),
         ) {
             if (onOptions != null) {

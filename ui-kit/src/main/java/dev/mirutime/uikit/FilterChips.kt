@@ -5,6 +5,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.width
@@ -85,11 +88,13 @@ fun ChipRow(
     }
 }
 
-// One chip language AND one size grid for the whole app: compact 28dp chip
-// with an 8dp radius (a 12dp radius on 28dp reads as an oval), 12sp label,
-// 12dp inner side padding, 48dp touch box — identical in every theme.
-// Unselected = the plate + onSurface ink + outline hairline; selected = solid
-// accent.
+// One chip language AND one size grid for the whole app: a 32dp face with the
+// family's 8dp chip radius, a 12sp label and 12dp inner side padding, on a
+// 40dp box (surface + 8, per the hitbox rule). The 48dp box it replaced made
+// grouped rows read ~32dp apart although the spacing was 8dp; a lone chip can
+// still ask for the 48dp target. Unselected = the plate + onSurface ink +
+// outline hairline; selected = solid accent, or a tint when the chip sits on
+// artwork.
 @Composable
 fun MiruFilterChip(
     selected: Boolean,
@@ -98,7 +103,9 @@ fun MiruFilterChip(
     modifier: Modifier = Modifier,
     leadingIcon: ImageVector? = null,
     enabled: Boolean = true,
-    touchTarget: Dp = MiruSize.Touch,
+    // Default box = surface + 8dp. Groups must not sit on 48dp boxes: the
+    // extra 16dp per row reads as a gap, not as a hitbox.
+    touchTarget: Dp = compactTouchTarget(MiruSize.RowCompact),
 ) {
     val extra = LocalMiruExtraColors.current
     // Same pair of looks in every theme: unselected = the plate + onSurface
@@ -138,11 +145,11 @@ fun MiruFilterChip(
         ) {
             Box(
                 modifier = Modifier
-                    .heightIn(min = MiruSize.Chip)
+                    .heightIn(min = MiruSize.RowCompact)
                     .clip(shape)
                     .background(backing)
                     .border(MiruSize.Stroke, border, shape)
-                    .padding(horizontal = MiruSpace.S),
+                    .padding(horizontal = MiruSpace.M),
                 contentAlignment = Alignment.Center,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -157,7 +164,7 @@ fun MiruFilterChip(
                     }
                     Text(
                         text = label,
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelMedium,
                         color = ink,
                         maxLines = 1,
                     )
@@ -165,4 +172,24 @@ fun MiruFilterChip(
             }
         }
     }
+}
+
+// THE chip group: one owner for chip spacing. Vertically the 40dp box already
+// carries 4dp of air around the 32dp face, so 2dp of spacing reads as ~10dp
+// between faces — rows stay dense without touching. Horizontally the box adds
+// nothing to a text-wide chip, so the column gap keeps the sibling 8dp.
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun MiruChipFlow(
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    content: @Composable FlowRowScope.() -> Unit,
+) {
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
+        verticalArrangement = Arrangement.spacedBy(MiruSpace.Xxs),
+        maxLines = maxLines,
+        content = content,
+    )
 }

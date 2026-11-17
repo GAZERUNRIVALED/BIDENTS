@@ -1,9 +1,5 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package dev.mirutime.uikit
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
@@ -99,9 +95,7 @@ fun FilterChipGroup(
 
     val collapsible = !searchable && sorted.size > CollapseAfter
     val shown = pinned + rest
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-        verticalArrangement = Arrangement.spacedBy(MiruSpace.Xs),
+    MiruChipFlow(
         maxLines = if (collapsible && !expanded) 3 else Int.MAX_VALUE,
     ) {
         shown.forEach { option ->

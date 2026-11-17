@@ -1,12 +1,9 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package dev.mirutime.app.features.finder.ui
 
 import android.widget.Toast
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
@@ -40,6 +37,7 @@ import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.uikit.ChoiceOption
 import dev.mirutime.uikit.ChoiceSheet
+import dev.mirutime.uikit.MiruChipFlow
 import dev.mirutime.uikit.MiruFilterChip
 import dev.mirutime.uikit.SettingsValueRow
 import dev.mirutime.uikit.SheetSection
@@ -167,7 +165,7 @@ private fun SelectSetting(setting: PluginSetting.Select) {
             preserveCase = true,
             summary = summary,
         ) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(MiruSpace.S)) {
+            MiruChipFlow {
                 setting.options.forEach { option ->
                     MiruFilterChip(
                         selected = option.key == current,
