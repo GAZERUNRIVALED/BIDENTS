@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import dev.mirutime.app.R
 import dev.mirutime.app.design.rememberPersistedState
 import dev.mirutime.uikit.LocalMiruExtraColors
+import dev.mirutime.uikit.MiruIconButton
+import dev.mirutime.uikit.MiruIconButtonStyle
 import dev.mirutime.uikit.MiruSearchDecoration
 import dev.mirutime.uikit.MiruSize
 import dev.mirutime.uikit.MiruSpace
@@ -62,6 +64,7 @@ import dev.mirutime.uikit.MiruSectionCard
 import dev.mirutime.uikit.SkeletonBar
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.uikit.miruCardElevation
+import dev.mirutime.uikit.isLargeText
 import dev.mirutime.uikit.miruCardSurface
 import dev.mirutime.app.features.finder.data.FinderDataProvider
 import dev.mirutime.app.features.finder.domain.BrowseFilters
@@ -202,18 +205,35 @@ fun FinderScreen(
                 title = stringResource(R.string.finder_sources_catalogues),
                 description = stringResource(R.string.finder_sources_desc),
                 trailing = {
-                    TextButton(onClick = onManageExtensions) {
-                        Icon(
-                            imageVector = Icons.Filled.Extension,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
+                    val label = stringResource(R.string.finder_manage_extensions)
+                    // The header gives trailing half the row, and this label is
+                    // the longest one in the app: at large text it would be cut
+                    // mid-word, so the action drops to its icon and keeps the
+                    // label as the accessibility name.
+                    if (isLargeText()) {
+                        MiruIconButton(
+                            icon = Icons.Filled.Extension,
+                            contentDescription = label,
+                            onClick = onManageExtensions,
+                            // Plate backing: a bare glyph in a header reads as
+                            // decoration, not as the card's one action.
+                            style = MiruIconButtonStyle.Plate,
                         )
-                        Text(
-                            text = stringResource(R.string.finder_manage_extensions),
-                            style = MaterialTheme.typography.labelLarge,
-                            maxLines = 1,
-                            modifier = Modifier.padding(start = MiruSpace.Xs),
-                        )
+                    } else {
+                        TextButton(onClick = onManageExtensions) {
+                            Icon(
+                                imageVector = Icons.Filled.Extension,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(start = MiruSpace.Xs),
+                            )
+                        }
                     }
                 },
                 contentPadding = PaddingValues(0.dp),

@@ -1,6 +1,7 @@
 package dev.mirutime.uikit
 
 import java.io.File
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -45,6 +46,15 @@ class ControlLayoutRegressionTest {
         assertTrue(sheet.contains("onSizeChanged"))
         assertTrue(sheet.contains("contentWindowInsets = { WindowInsets(0) }"))
         assertTrue(sheet.contains("windowInsetsPadding(WindowInsets.navigationBars)"))
+    }
+
+    @Test
+    fun `section header trailing action shares the half-width budget`() {
+        // Unbounded trailing took the row at 200% font and left the title a few
+        // characters wide, stacking it one character per line.
+        val header = source("SectionHeader").substringAfter("private fun HeaderRow(")
+        val capped = header.split("widthIn(max = maxActionWidth)").size - 1
+        assertEquals("both the action label and trailing stay inside the budget", 2, capped)
     }
 
     @Test

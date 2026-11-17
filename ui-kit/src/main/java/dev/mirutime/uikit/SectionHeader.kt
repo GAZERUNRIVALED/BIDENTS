@@ -1,5 +1,6 @@
 package dev.mirutime.uikit
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -141,7 +142,17 @@ private fun HeaderRow(
                     Text(actionLabel)
                 }
             }
-            trailing?.invoke()
+            // Trailing actions share the same half-width budget as the label:
+            // unbounded, a text button at 200 % font left the title a few
+            // characters wide and it stacked one character per line.
+            trailing?.let { content ->
+                Box(
+                    modifier = Modifier.widthIn(max = maxActionWidth),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    content()
+                }
+            }
         }
     }
 }
