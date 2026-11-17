@@ -85,6 +85,7 @@ import dev.mirutime.uikit.MiruSize
 import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.compactTouchTarget
 import dev.mirutime.uikit.isLargeText
+import dev.mirutime.uikit.MiruSelectionPlate
 import dev.mirutime.uikit.miruDecimal
 import java.util.Locale
 import kotlin.coroutines.cancellation.CancellationException
@@ -113,6 +114,7 @@ internal enum class BulkAction(val labelRes: Int) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SelectionBar(
+    modifier: Modifier = Modifier,
     selectionCount: Int,
     allSelected: Boolean,
     translationConfigured: Boolean,
@@ -132,13 +134,9 @@ internal fun SelectionBar(
     onClose: () -> Unit,
 ) {
     val extra = LocalMiruExtraColors.current
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(MiruRadius.Control))
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    MiruSelectionPlate(
+        modifier = modifier,
+        header = {
             MiruIconButton(
                 icon = Icons.Filled.Close,
                 contentDescription = stringResource(R.string.lib_selection_close),
@@ -182,16 +180,10 @@ internal fun SelectionBar(
             TextButton(onClick = onClear, enabled = busy == null && selectionCount > 0) {
                 Text(text = stringResource(R.string.book_sel_clear))
             }
-        }
-        // Compact action strip: never wrap. On narrow screens the user
-        // scrolls horizontally instead of growing the bar vertically.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(start = MiruSpace.S, end = MiruSpace.S, bottom = MiruSpace.S),
-            horizontalArrangement = Arrangement.spacedBy(MiruSpace.S),
-        ) {
+        },
+        // Never wraps: on narrow screens the user scrolls the strip sideways
+        // instead of growing the bar vertically.
+        actions = {
             MiruCompactButton(
                 icon = Icons.Filled.Translate,
                 label = stringResource(R.string.book_sel_action_translate),
@@ -236,8 +228,8 @@ internal fun SelectionBar(
                 enabled = busy == null && selectionCount > 0,
                 onClick = { onMarkRead(false) },
             )
-        }
-    }
+        },
+    )
 }
 
 // Chapter row: number + title, at most two trailing glyphs — translated
@@ -349,6 +341,8 @@ internal fun ChapterRow(
                 .padding(start = MiruSpace.S, end = ChapterRowEndGutter)
                 .padding(vertical = MiruSpace.Xxs),
         ) {
+            // Selection mode keeps the number: the icon is the affordance, the
+            // number is how the reader finds the chapter they are marking.
             if (selectionActive) {
                 Icon(
                     imageVector = if (selected) {
@@ -360,18 +354,17 @@ internal fun ChapterRow(
                     tint = if (selected) MaterialTheme.colorScheme.primary else extra.muted,
                     modifier = Modifier.size(16.dp),
                 )
-            } else {
-                Text(
-                    text = chapter.index.toString(),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                    ),
-                    color = extra.muted,
-                    maxLines = 1,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier.widthIn(min = 30.dp),
-                )
             }
+            Text(
+                text = chapter.index.toString(),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontFamily = FontFamily.Monospace,
+                ),
+                color = extra.muted,
+                maxLines = 1,
+                textAlign = TextAlign.End,
+                modifier = Modifier.widthIn(min = 30.dp),
+            )
             Column(
                 modifier = Modifier
                     .weight(1f)

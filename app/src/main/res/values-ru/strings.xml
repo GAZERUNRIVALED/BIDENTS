@@ -255,7 +255,7 @@
     <string name="book_cd_ch_scrollbar">Прокрутка списка глав</string>
     <string name="book_select_chapters">Выбрать главы</string>
     <string name="book_select_title">Выбрать главы</string>
-    <string name="book_select_desc">Укажите диапазон и действие</string>
+    <string name="book_select_desc">Задайте диапазон глав и действие — не нужно отмечать главы по одной</string>
     <string name="book_select_from">С главы №</string>
     <string name="book_select_to">По главу №</string>
     <string name="book_select_action">Действие</string>

@@ -261,7 +261,7 @@
     <string name="book_ch_read_badge">✓ READ</string>
     <string name="book_select_chapters">Select chapters</string>
     <string name="book_select_title">Select chapters</string>
-    <string name="book_select_desc">Pick a range and what to do with it</string>
+    <string name="book_select_desc">Set a chapter range and one action — no need to tap chapters one by one</string>
     <string name="book_select_from">From chapter №</string>
     <string name="book_select_to">To chapter №</string>
     <string name="book_select_action">Action</string>

@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +53,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
@@ -70,6 +70,7 @@ import dev.mirutime.uikit.MiruRadius
 import dev.mirutime.uikit.MiruSize
 import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.app.R
+import dev.mirutime.app.shell.TabBarDecoration
 import dev.mirutime.uikit.LocalMiruExtraColors
 import dev.mirutime.uikit.LocalMiruOnImage
 import dev.mirutime.uikit.miruPhotoMuted
@@ -138,7 +139,6 @@ private const val MaxReloadPages = 5
 // Library order: search first, shelf chips, last-read
 // block, mini-filters, then the grid. Full filter state lives here so the big
 // sheet and the mini-filters stay in two-way sync.
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(
     contentPadding: PaddingValues,
@@ -599,6 +599,20 @@ fun LibraryScreen(
     }
 
     val gridRows = remember(shown, columns) { shown.chunked(columns) }
+    // Scaffold's bottom inset reaches past the tab pill: it also carries the
+    // shell's decorative fade strip and plate top padding. Drop those (owned by
+    // MiruShell) so the bar keeps an 8dp gap above the pill.
+    val selectionBarBottom = contentPadding.calculateBottomPadding() -
+        TabBarDecoration + MiruSpace.S
+    // Measured, never a constant: the bar grows with the font scale, and the
+    // grid must still scroll its last row clear of it.
+    var selectionBarHeightPx by remember { mutableStateOf(0) }
+    val selectionBarInset = if (selection.active) {
+        selectionBarBottom + with(LocalDensity.current) { selectionBarHeightPx.toDp() } +
+            MiruSpace.S
+    } else {
+        contentPadding.calculateBottomPadding() + MiruSpace.Xl
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -608,89 +622,9 @@ fun LibraryScreen(
                 start = MiruSize.ScreenPad,
                 end = MiruSize.ScreenPad,
                 top = contentPadding.calculateTopPadding() + MiruSpace.Xs,
-                bottom = contentPadding.calculateBottomPadding() + MiruSpace.Xl,
+                bottom = selectionBarInset,
             ),
         ) {
-            // Pinned top action bar: it stays visible while the grid scrolls.
-            stickyHeader(key = "library-selection") {
-                if (selection.active) {
-                    LibrarySelectionBar(
-                        selectedCount = selection.count,
-                        // SQL total when known; search has no count query.
-                        visibleCount = pager.total ?: shown.size,
-                        busy = bulkBusy || selectAllBusy,
-                        onClose = { selection = LibrarySelection() },
-                        onSelectAll = {
-                            if (!selectAllBusy) {
-                                selectAllBusy = true
-                                ioScope.launch {
-                                    var failed = false
-                                    val sources = try {
-                                        provider.matchingLibrarySources(appliedQuery, filters)
-                                    } catch (e: CancellationException) {
-                                        throw e
-                                    } catch (e: Exception) {
-                                        MiruLog.w("library", "Select-all sources failed", e)
-                                        failed = true
-                                        emptyMap()
-                                    } finally {
-                                        selectAllBusy = false
-                                    }
-                                    val keys = if (failed) {
-                                        emptySet()
-                                    } else if (sources.isNotEmpty()) {
-                                        sources.flatMap { (url, installs) ->
-                                            if (installs.isEmpty()) {
-                                                listOf(url)
-                                            } else {
-                                                installs.map { libraryBookKey(it, url) }
-                                            }
-                                        }.toSet()
-                                    } else {
-                                        try {
-                                            val urls = provider
-                                                .matchingLibraryUrls(appliedQuery, filters)
-                                                .toSet()
-                                            shown.filter { it.bookUrl in urls }
-                                                .map { it.bookKey }
-                                                .toSet()
-                                        } catch (e: CancellationException) {
-                                            throw e
-                                        } catch (e: Exception) {
-                                            MiruLog.w("library", "Select-all failed", e)
-                                            failed = true
-                                            emptySet()
-                                        }
-                                    }
-                                    if (failed) {
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            R.string.lib_select_all_failed,
-                                            android.widget.Toast.LENGTH_SHORT,
-                                        ).show()
-                                    } else {
-                                        selection = reduceLibrarySelection(
-                                            selection,
-                                            LibrarySelectionAction.SelectAll(keys),
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                        onClear = {
-                            selection = reduceLibrarySelection(selection, LibrarySelectionAction.Clear)
-                        },
-                        onMove = { bulkMoveOpen = true },
-                        onMarkRead = {
-                            runBulk(BulkAction.Read) { provider.markBooksRead(it, read = true) }
-                        },
-                        onMarkUnread = {
-                            runBulk(BulkAction.Unread) { provider.markBooksRead(it, read = false) }
-                        },
-                        onDelete = { bulkDeleteOpen = true },
-                    )
-                }
-            }
             item {
                 // The exact Finder / Global Search field (one shared component):
                 // 40dp, filled, clear button. The filter button stays its own
@@ -967,8 +901,98 @@ fun LibraryScreen(
             }
         }
 
+        if (selection.active) {
+            // Overlay, not a sticky header: pinned at y=0 it sat behind the
+            // app bar and no scroll position ever showed it. Bottom float, so
+            // it matches the chapter-list bar; the plate keeps grid rows from
+            // bleeding through.
+            LibrarySelectionBar(
+                selectedCount = selection.count,
+                // SQL total when known; search has no count query.
+                visibleCount = pager.total ?: shown.size,
+                busy = bulkBusy || selectAllBusy,
+                onClose = { selection = LibrarySelection() },
+                onSelectAll = {
+                    if (!selectAllBusy) {
+                        selectAllBusy = true
+                        ioScope.launch {
+                            var failed = false
+                            val sources = try {
+                                provider.matchingLibrarySources(appliedQuery, filters)
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                MiruLog.w("library", "Select-all sources failed", e)
+                                failed = true
+                                emptyMap()
+                            } finally {
+                                selectAllBusy = false
+                            }
+                            val keys = if (failed) {
+                                emptySet()
+                            } else if (sources.isNotEmpty()) {
+                                sources.flatMap { (url, installs) ->
+                                    if (installs.isEmpty()) {
+                                        listOf(url)
+                                    } else {
+                                        installs.map { libraryBookKey(it, url) }
+                                    }
+                                }.toSet()
+                            } else {
+                                try {
+                                    val urls = provider
+                                        .matchingLibraryUrls(appliedQuery, filters)
+                                        .toSet()
+                                    shown.filter { it.bookUrl in urls }
+                                        .map { it.bookKey }
+                                        .toSet()
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    MiruLog.w("library", "Select-all failed", e)
+                                    failed = true
+                                    emptySet()
+                                }
+                            }
+                            if (failed) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    R.string.lib_select_all_failed,
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            } else {
+                                selection = reduceLibrarySelection(
+                                    selection,
+                                    LibrarySelectionAction.SelectAll(keys),
+                                )
+                            }
+                        }
+                    }
+                },
+                onClear = {
+                    selection = reduceLibrarySelection(selection, LibrarySelectionAction.Clear)
+                },
+                onMove = { bulkMoveOpen = true },
+                onMarkRead = {
+                    runBulk(BulkAction.Read) { provider.markBooksRead(it, read = true) }
+                },
+                onMarkUnread = {
+                    runBulk(BulkAction.Unread) { provider.markBooksRead(it, read = false) }
+                },
+                onDelete = { bulkDeleteOpen = true },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(
+                        start = MiruSize.ScreenPad,
+                        end = MiruSize.ScreenPad,
+                        bottom = selectionBarBottom,
+                    )
+                    .onSizeChanged { selectionBarHeightPx = it.height },
+            )
+        }
+
         AnimatedVisibility(
-            visible = showScrollToTop,
+            visible = showScrollToTop && !selection.active,
             enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.9f, animationSpec = tween(150)),
             exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.9f, animationSpec = tween(120)),
             modifier = Modifier

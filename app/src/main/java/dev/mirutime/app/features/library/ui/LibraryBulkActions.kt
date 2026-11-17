@@ -1,13 +1,12 @@
 package dev.mirutime.app.features.library.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.filled.CheckCircle
@@ -15,10 +14,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.RemoveCircleOutline
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,18 +25,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mirutime.app.R
-import dev.mirutime.uikit.LocalMiruExtraColors
-import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.AppBottomSheet
+import dev.mirutime.uikit.LocalMiruExtraColors
+import dev.mirutime.uikit.MiruCompactButton
+import dev.mirutime.uikit.MiruIconButton
+import dev.mirutime.uikit.MiruSize
+import dev.mirutime.uikit.MiruSpace
 import dev.mirutime.uikit.SheetSection
-import dev.mirutime.uikit.miruCardElevation
-import dev.mirutime.uikit.miruCardSurface
+import dev.mirutime.uikit.MiruSelectionPlate
 import dev.mirutime.app.features.library.domain.Shelf
 
-// Top action bar shown while the library is in selection mode. The first row
-// is close/count/select-all/clear; the second carries the four bulk actions.
-// Busy replaces the close button with a spinner and disables every control, so
-// a double submit cannot start a second transaction.
+// Bottom action bar shown while the library is in selection mode. Same
+// MiruSelectionPlate container as the chapter-list SelectionBar; busy shows a
+// spinner next to the count and disables every submit action, while close
+// stays live so the user can always leave selection mode.
 @Composable
 fun LibrarySelectionBar(
     selectedCount: Int,
@@ -55,107 +53,83 @@ fun LibrarySelectionBar(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val extra = LocalMiruExtraColors.current
     val allSelected = visibleCount > 0 && selectedCount >= visibleCount
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = miruCardSurface(),
-        shadowElevation = miruCardElevation(),
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = MiruSpace.S, vertical = 4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (busy) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                } else {
-                    IconButton(onClick = onClose) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.lib_selection_close),
-                        )
-                    }
-                }
-                Text(
-                    text = pluralStringResource(
-                        R.plurals.plural_selected_books,
-                        selectedCount,
-                        selectedCount,
-                    ),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+    val actionsEnabled = !busy && selectedCount > 0
+    MiruSelectionPlate(
+        modifier = modifier,
+        header = {
+            MiruIconButton(
+                icon = Icons.Filled.Close,
+                contentDescription = stringResource(R.string.lib_selection_close),
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                iconSize = MiruSize.IconCompact,
+                onClick = onClose,
+            )
+            Text(
+                text = pluralStringResource(
+                    R.plurals.plural_selected_books,
+                    selectedCount,
+                    selectedCount,
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (busy) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(14.dp),
                 )
-                TextButton(
-                    onClick = onSelectAll,
-                    enabled = !busy && !allSelected && visibleCount > 0,
-                ) {
-                    Text(text = stringResource(R.string.lib_select_all))
-                }
-                TextButton(
-                    onClick = onClear,
-                    enabled = !busy && selectedCount > 0,
-                ) {
-                    Text(text = stringResource(R.string.lib_clear_selection))
-                }
+                Spacer(modifier = Modifier.width(6.dp))
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
+            TextButton(
+                onClick = onSelectAll,
+                enabled = !busy && !allSelected && visibleCount > 0,
             ) {
-                BulkAction(
-                    icon = Icons.AutoMirrored.Filled.DriveFileMove,
-                    description = stringResource(R.string.lib_bulk_move),
-                    enabled = !busy && selectedCount > 0,
-                    onClick = onMove,
-                )
-                BulkAction(
-                    icon = Icons.Filled.CheckCircle,
-                    description = stringResource(R.string.lib_bulk_mark_read),
-                    enabled = !busy && selectedCount > 0,
-                    onClick = onMarkRead,
-                )
-                BulkAction(
-                    icon = Icons.Filled.RemoveCircleOutline,
-                    description = stringResource(R.string.lib_bulk_mark_unread),
-                    enabled = !busy && selectedCount > 0,
-                    onClick = onMarkUnread,
-                )
-                BulkAction(
-                    icon = Icons.Filled.Delete,
-                    description = stringResource(R.string.lib_bulk_delete),
-                    enabled = !busy && selectedCount > 0,
-                    onClick = onDelete,
-                )
+                Text(text = stringResource(R.string.lib_select_all))
             }
-        }
-    }
-}
-
-@Composable
-private fun BulkAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    description: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    IconButton(onClick = onClick, enabled = enabled) {
-        Icon(
-            imageVector = icon,
-            contentDescription = description,
-            tint = if (enabled) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                LocalMiruExtraColors.current.muted
-            },
-        )
-    }
+            TextButton(
+                onClick = onClear,
+                enabled = !busy && selectedCount > 0,
+            ) {
+                Text(text = stringResource(R.string.lib_clear_selection))
+            }
+        },
+        actions = {
+            MiruCompactButton(
+                icon = Icons.AutoMirrored.Filled.DriveFileMove,
+                label = stringResource(R.string.lib_bulk_move),
+                ink = extra.accent,
+                enabled = actionsEnabled,
+                onClick = onMove,
+            )
+            MiruCompactButton(
+                icon = Icons.Filled.Delete,
+                label = stringResource(R.string.lib_bulk_delete),
+                ink = MaterialTheme.colorScheme.error,
+                enabled = actionsEnabled,
+                onClick = onDelete,
+            )
+            MiruCompactButton(
+                icon = Icons.Filled.CheckCircle,
+                label = stringResource(R.string.lib_bulk_mark_read),
+                ink = extra.accent,
+                enabled = actionsEnabled,
+                onClick = onMarkRead,
+            )
+            MiruCompactButton(
+                icon = Icons.Filled.RemoveCircleOutline,
+                label = stringResource(R.string.lib_bulk_mark_unread),
+                ink = extra.accent,
+                enabled = actionsEnabled,
+                onClick = onMarkUnread,
+            )
+        },
+    )
 }
 
 // Delete confirmation: the destructive semantics are explicit (app data and

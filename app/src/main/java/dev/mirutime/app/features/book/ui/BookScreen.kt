@@ -8,6 +8,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.combinedClickable
@@ -21,11 +22,13 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -91,17 +94,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -1957,6 +1967,7 @@ internal fun BookScreen(
                         ChapterBrowser(
                             book = current,
                             listState = chapterListState,
+                            pageListState = pageListState,
                             searchFocused = searchFocused,
                             onSearchFocusChanged = { searchFocused = it },
                             translatedTitles = if (translationPresentation.chapterTitles) {
@@ -4073,13 +4084,28 @@ private fun ChapterOrderToggle(newestFirst: Boolean, onClick: () -> Unit) {
     }
 }
 
-// Chapter browser: search field, two buttons, selection bar, then the
-// chapter list in its own scroll window (trails the READING ORDER switch).
+// Window position of a node that may be clipped by its scroll viewport:
+// positionInWindow() clamps to the clip rect, so walk the parents unclipped.
+private fun LayoutCoordinates.positionInWindowUnclipped(): Offset {
+    var node: LayoutCoordinates = this
+    var position = Offset.Zero
+    while (true) {
+        position += node.positionInParent()
+        node = node.parentLayoutCoordinates ?: return position
+    }
+}
+
+// Chapter browser: search field, the Download / Select / Last read buttons and
+// filter chips, then the chapter list in its own scroll window (trails the
+// READING ORDER switch). The selection bar floats over that window's bottom.
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ChapterBrowser(
     book: BookDetails,
     listState: LazyListState,
+    // The page's own scroll: the bar floats over the chapter window's bottom
+    // edge, and bringing it into view needs pixel scrolling, not item bounds.
+    pageListState: LazyListState,
     searchFocused: Boolean,
     onSearchFocusChanged: (Boolean) -> Unit,
     translatedTitles: Map<Int, String>,
@@ -4175,6 +4201,47 @@ private fun ChapterBrowser(
 
     val searchFocusRequester = remember { FocusRequester() }
     val searchBringIntoView = remember { BringIntoViewRequester() }
+    // The bar docks to the bottom of one very tall page item, and LazyList's
+    // bring-into-view only resolves item bounds: it stops as soon as the item
+    // is visible, never reaching the bar's sub-rect at its bottom. So scroll
+    // the leftover pixels explicitly, once, on entering selection mode. Later
+    // selection changes, busy and bar-height changes never move the page.
+    val density = LocalDensity.current
+    val gapPx = with(density) { MiruSpace.S.toPx() }
+    val navBarBottomPx = with(density) { WindowInsets.navigationBars.getBottom(this) }.toFloat()
+    // The chapter search field sits right above the list, so an open keyboard
+    // squeezes the usable strip exactly like the nav bar does.
+    val imeBottomPx = with(density) { LocalImeBottom.current.toPx() }
+    val windowHeightPx = LocalWindowInfo.current.containerSize.height.toFloat()
+    var selectionBarBottomPx by remember { mutableStateOf(0f) }
+    LaunchedEffect(selectionActive) {
+        if (!selectionActive) {
+            // Stale bounds must not short-circuit the next transition.
+            selectionBarBottomPx = 0f
+            return@LaunchedEffect
+        }
+        // The bar enters composition this frame; measure it after layout.
+        withFrameNanos { }
+        val barBottom = selectionBarBottomPx
+        if (barBottom <= 0f) {
+            // Nothing laid out this frame: never scroll blind.
+            MiruLog.event("book", "selection-bar-reveal-skipped", "reason" to "unmeasured")
+            return@LaunchedEffect
+        }
+        val visibleBottomPx = windowHeightPx - maxOf(navBarBottomPx, imeBottomPx)
+        val overflow = barBottom + gapPx - visibleBottomPx
+        MiruLog.event(
+            "book",
+            "selection-bar-reveal",
+            "barBottom" to barBottom,
+            "window" to windowHeightPx,
+            "navInset" to navBarBottomPx,
+            "ime" to imeBottomPx,
+            "overflow" to overflow,
+        )
+        // Clamps at the content end: no loop, no overscroll guesswork.
+        if (overflow > 0f) pageListState.scrollBy(overflow)
+    }
     val resultsPeek = with(LocalDensity.current) { 320.dp.toPx() }
     LaunchedEffect(searchFocused) {
         if (!searchFocused) return@LaunchedEffect
@@ -4319,96 +4386,121 @@ private fun ChapterBrowser(
             )
         }
         val scrollbarDragThumbTop = remember { mutableStateOf<Float?>(null) }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .chapterScrollbarDrag(listState, listScrollable) {
-                    scrollbarDragThumbTop.value = it
-                },
-        ) {
-            if (visible.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 120.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = stringResource(R.string.book_ch_empty_no_match),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-            LazyColumn(
-                state = listState,
+        // The selection bar floats over the window's bottom edge, so its
+        // measured height is what the list reserves below the last chapter.
+        // Measuring beats a constant: the bar grows with the font scale.
+        var selectionBarHeightPx by remember { mutableStateOf(0) }
+        val selectionBarInset = if (selectionActive) {
+            with(LocalDensity.current) { selectionBarHeightPx.toDp() } + MiruSpace.S
+        } else {
+            0.dp
+        }
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Rail and its drag gesture stay on the list window alone: the
+            // bar sits above them and keeps every touch it gets.
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = ChapterWindowHeight),
+                    .chapterScrollbarDrag(listState, listScrollable) {
+                        scrollbarDragThumbTop.value = it
+                    },
             ) {
-                items(visible, key = { chapterRowKey(it.index) }) { chapter ->
-                    val chapterUrl = chapter.url ?: chapterKey(book.bookUrl, chapter.index)
-                    ChapterRow(
-                        chapter = chapter,
-                        title = translatedTitles[chapter.index] ?: chapter.title,
-                        isLastRead = chapter.index == lastRead,
-                        translationStatus = translationStates[chapterUrl]?.status,
-                        videoDownload = videoDownloads[chapter.index],
-                        isVideoBook = isVideoBook,
-                        onVideoDownloadAction = { action ->
-                            onVideoDownloadAction(chapter.index, action)
-                        },
-                        selectionActive = selectionActive,
-                        selected = chapter.index in selection,
-                        onClick = {
-                            if (selectionActive) {
-                                selection = toggleIn(selection, chapter.index)
-                            } else {
-                                onOpenChapter(chapter.index)
-                            }
-                        },
-                        onLongClick = { selection = selection + chapter.index },
-                        onRetryTranslation = { onRetryTranslation(chapter.index) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                if (visible.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = selectionBarInset)
+                            .heightIn(min = 120.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.book_ch_empty_no_match),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        contentPadding = PaddingValues(bottom = selectionBarInset),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = ChapterWindowHeight),
+                    ) {
+                        items(visible, key = { chapterRowKey(it.index) }) { chapter ->
+                            val chapterUrl =
+                                chapter.url ?: chapterKey(book.bookUrl, chapter.index)
+                            ChapterRow(
+                                chapter = chapter,
+                                title = translatedTitles[chapter.index] ?: chapter.title,
+                                isLastRead = chapter.index == lastRead,
+                                translationStatus = translationStates[chapterUrl]?.status,
+                                videoDownload = videoDownloads[chapter.index],
+                                isVideoBook = isVideoBook,
+                                onVideoDownloadAction = { action ->
+                                    onVideoDownloadAction(chapter.index, action)
+                                },
+                                selectionActive = selectionActive,
+                                selected = chapter.index in selection,
+                                onClick = {
+                                    if (selectionActive) {
+                                        selection = toggleIn(selection, chapter.index)
+                                    } else {
+                                        onOpenChapter(chapter.index)
+                                    }
+                                },
+                                onLongClick = { selection = selection + chapter.index },
+                                onRetryTranslation = { onRetryTranslation(chapter.index) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                    if (listScrollable) {
+                        ChapterScrollbar(
+                            state = listState,
+                            dragThumbTop = scrollbarDragThumbTop,
+                            modifier = Modifier.matchParentSize(),
+                        )
+                    }
                 }
             }
-            if (listScrollable) {
-                ChapterScrollbar(
-                    state = listState,
-                    dragThumbTop = scrollbarDragThumbTop,
-                    modifier = Modifier.matchParentSize(),
+            if (selectionActive) {
+                val allSelected = remember(visible, selection) {
+                    visible.isNotEmpty() && visible.all { it.index in selection }
+                }
+                SelectionBar(
+                    selectionCount = selection.size,
+                    allSelected = allSelected,
+                    translationConfigured = translationConfigured,
+                    downloadAvailable = downloadAvailable,
+                    showDownload = showDownload,
+                    translatedCount = selectedTranslated,
+                    downloadedCount = selectedDownloaded,
+                    busy = bulkBusy,
+                    onSelectAll = { selection = selection + visible.map { it.index } },
+                    onTranslate = { onTranslate(selection) { selection = emptySet() } },
+                    onMarkRead = { read -> onMarkRead(selection, read) { selection = emptySet() } },
+                    onDeleteTranslations = {
+                        onDeleteTranslations(selection) { selection = emptySet() }
+                    },
+                    onDownloadSelected = { onDownloadSelected(selection) },
+                    onDeleteDownloads = {
+                        onDeleteDownloads(selection) { selection = emptySet() }
+                    },
+                    onClear = { selection = emptySet() },
+                    onClose = { selection = emptySet() },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        // The stock window accessors clamp to the scroll
+                        // viewport's clip rect, which is exactly the case we
+                        // must measure (bar below the fold), so ask unclipped.
+                        .onGloballyPositioned { coords ->
+                            selectionBarBottomPx =
+                                coords.positionInWindowUnclipped().y + coords.size.height
+                        }
+                        .onSizeChanged { selectionBarHeightPx = it.height },
                 )
             }
-            }
-        }
-        if (selectionActive) {
-            val allSelected = remember(visible, selection) {
-                visible.isNotEmpty() && visible.all { it.index in selection }
-            }
-            Spacer(modifier = Modifier.height(MiruSpace.S))
-            SelectionBar(
-                selectionCount = selection.size,
-                allSelected = allSelected,
-                translationConfigured = translationConfigured,
-                downloadAvailable = downloadAvailable,
-                showDownload = showDownload,
-                translatedCount = selectedTranslated,
-                downloadedCount = selectedDownloaded,
-                busy = bulkBusy,
-                onSelectAll = { selection = selection + visible.map { it.index } },
-                onTranslate = { onTranslate(selection) { selection = emptySet() } },
-                onMarkRead = { read -> onMarkRead(selection, read) { selection = emptySet() } },
-                onDeleteTranslations = {
-                    onDeleteTranslations(selection) { selection = emptySet() }
-                },
-                onDownloadSelected = { onDownloadSelected(selection) },
-                onDeleteDownloads = {
-                    onDeleteDownloads(selection) { selection = emptySet() }
-                },
-                onClear = { selection = emptySet() },
-                onClose = { selection = emptySet() },
-            )
         }
     }
 }

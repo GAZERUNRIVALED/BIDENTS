@@ -164,6 +164,13 @@ private val Tabs = listOf(
 // a nested scroll area can reserve room for results instead of only the field.
 internal val LocalImeBottom = compositionLocalOf { 0.dp }
 
+// What the shell's bottom bar spends above the tab pill: the fade strip plus
+// the plate's own top padding. One owner here, used by the gradient/plate
+// below and by screens that float their own bar above the pill.
+internal val TabBarFadeStrip = 16.dp
+internal val TabBarPlateTopInset = 4.dp
+internal val TabBarDecoration = TabBarFadeStrip + TabBarPlateTopInset
+
 // App shell: pinned header on top, four-tab bottom navigation, standard
 // system-plus-header back behavior. Extra themes live behind the header
 // palette button; extra screens behind the overflow button.
@@ -556,7 +563,7 @@ fun MiruShell(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(16.dp)
+                            .height(TabBarFadeStrip)
                             .background(
                                 Brush.verticalGradient(
                                     colors = listOf(
@@ -1146,7 +1153,12 @@ private fun MiruTabBar(
         modifier = Modifier
             // Floating plate: 8dp above the gesture bar, with the nav inset
             // inside the surface. The root strip paints only the inset.
-            .padding(start = 10.dp, end = 10.dp, top = 4.dp, bottom = 8.dp)
+            .padding(
+                start = 10.dp,
+                end = 10.dp,
+                top = TabBarPlateTopInset,
+                bottom = 8.dp,
+            )
             .windowInsetsPadding(WindowInsets.navigationBars),
         shape = RoundedCornerShape(MiruRadius.Sheet),
         // Opaque backing: content scrolling past the floating panel must
