@@ -20,6 +20,15 @@ class LibraryScrollTopTest {
     }
 
     @Test
+    fun `long trips snap instead of animating every intermediate page`() {
+        assertTrue(shouldAnimateScrollToTop(firstVisibleItemIndex = 0, visibleItemCount = 5))
+        assertTrue(shouldAnimateScrollToTop(firstVisibleItemIndex = 5, visibleItemCount = 5))
+        assertFalse(shouldAnimateScrollToTop(firstVisibleItemIndex = 6, visibleItemCount = 5))
+        assertFalse(shouldAnimateScrollToTop(firstVisibleItemIndex = 90, visibleItemCount = 6))
+        assertFalse(shouldAnimateScrollToTop(firstVisibleItemIndex = 0, visibleItemCount = 0))
+    }
+
+    @Test
     fun `empty list never shows the control`() {
         assertFalse(shouldShowScrollToTop(firstVisibleItemIndex = 0, visibleItemCount = 0))
     }

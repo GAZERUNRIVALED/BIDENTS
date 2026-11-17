@@ -1004,7 +1004,24 @@ fun LibraryScreen(
         ) {
             ScrollToTopButton(
                 onClick = {
-                    ioScope.launch { listState.animateScrollToItem(0) }
+                    // Walking the pager one item at a time composes every
+                    // intermediate page (covers + a fetch per page), which
+                    // stutters and fires a burst of loads. Jump when the
+                    // distance is long, animate only the last screenful.
+                    val from = listState.firstVisibleItemIndex
+                    val visible = scrollingItemCount(
+                        visibleIndices = listState.layoutInfo.visibleItemsInfo.map { it.index },
+                        firstVisibleItemIndex = from,
+                    )
+                    val animated = shouldAnimateScrollToTop(from, visible)
+                    MiruLog.d("library", "scroll-to-top from=$from visible=$visible animated=$animated")
+                    ioScope.launch {
+                        if (animated) {
+                            listState.animateScrollToItem(0)
+                        } else {
+                            listState.scrollToItem(0)
+                        }
+                    }
                 },
             )
         }
@@ -1810,6 +1827,12 @@ internal fun shouldShowScrollToTop(
     visibleItemCount: Int,
 ): Boolean = visibleItemCount > 0 && firstVisibleItemIndex >= visibleItemCount
 
+// Smooth only while the whole trip is about one viewport: any longer and the
+// animation would compose every intermediate pager page instead of snapping.
+internal fun shouldAnimateScrollToTop(
+    firstVisibleItemIndex: Int,
+    visibleItemCount: Int,
+): Boolean = visibleItemCount > 0 && firstVisibleItemIndex <= visibleItemCount
 
 // A pinned sticky header is prepended to visibleItemsInfo. Count only rows
 // from firstVisibleItemIndex on, otherwise the header row inflates the
