@@ -6,11 +6,13 @@ import dev.mirutime.app.features.translation.data.ChapterTranslationPlanner
 import dev.mirutime.app.features.translation.data.TranslationMode
 import dev.mirutime.app.features.translation.domain.TranslationRequest
 import dev.mirutime.core.local.exportStreaming
+import dev.mirutime.core.log.MiruLog
 import dev.mirutime.core.reader.html.ReaderHtmlParser
 import dev.mirutime.translator.PromptSpec
 import java.io.File
 import java.io.OutputStream
 import java.net.URI
+import java.util.Locale
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,6 +26,11 @@ sealed interface EpubExportResult {
 
 /**
  * Writes a book through the core streaming EPUB writer.
+ *
+ * Only chapters the library holds locally (the `downloaded` chapter flag, which
+ * covers downloaded and reader-cached bodies) are written; the source is never
+ * asked for a chapter. The tool badge counts the same chapters, so the export is
+ * offline, matches what the screen promises and has a real progress total.
  *
  * Dependencies stay lambdas so the exporter is testable without Room, the
  * plugin runtime or the reader graph:
@@ -43,11 +50,19 @@ class BookEpubExporter(
         { _, _, _ -> null },
     private val sourceIdFor: (bookUrl: String) -> String = { "" },
 ) {
+    /**
+     * [title] is the display name the caller chose (it carries the language and
+     * "Original"/"Translated" tag exactly like the file name), [language] the
+     * BCP47 code for dc:language. Both fall back to the book's own metadata so
+     * a library without them still exports valid EPUB metadata.
+     */
     suspend fun export(
         bookUrl: String,
         includeTranslation: Boolean,
         outputStream: OutputStream,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+        title: String? = null,
+        language: String? = null,
     ): EpubExportResult = withContext(Dispatchers.IO) {
         val details = try {
             provider.book(bookUrl)
@@ -64,39 +79,42 @@ class BookEpubExporter(
         } catch (e: Exception) {
             return@withContext EpubExportResult.Failure(e.message ?: "Failed to load chapters")
         }
-        if (chapters.isEmpty()) return@withContext EpubExportResult.NoChapters
 
         val sourceId = sourceIdFor(bookUrl)
+        // Only chapters the library already holds locally (downloaded, or cached
+        // by the reader) are exported. The source is never asked for a chapter:
+        // a fallback fetch turned export into a silent full-book download with
+        // no progress, and the tile badge counts the same way.
+        val chaptersToWrite = chapters.filter { it.downloaded }
+        if (chaptersToWrite.isEmpty()) return@withContext EpubExportResult.NoChapters
+
+        // Remote artwork is best-effort: an unreachable image host must not turn
+        // a local export into hours of sequential 10s timeouts. Past the budget
+        // the original src is kept, exactly like a failed download.
+        val remoteImageDeadline = System.currentTimeMillis() + REMOTE_IMAGE_BUDGET_MS
+
         var written = 0
+        var missing = 0
         val chapterLoader: suspend (Int, Int) -> List<Pair<String, String>> = { offset, count ->
-            val end = minOf(offset + count, chapters.size)
+            val end = minOf(offset + count, chaptersToWrite.size)
             if (offset >= end) {
                 emptyList()
             } else {
-                chapters.subList(offset, end).mapNotNull { chapter ->
-                    val bodyHtml = try {
+                chaptersToWrite.subList(offset, end).mapNotNull { chapter ->
+                    val sourceText = try {
                         chapterBodyLoader(bookUrl, chapter.index)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {
                         null
                     }
-                    val content = if (bodyHtml == null) {
-                        try {
-                            provider.chapterContent(bookUrl, chapter.index)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (_: Exception) {
-                            null
-                        }
-                    } else {
-                        null
+                    // A stale "downloaded" flag (file deleted) is skipped, never
+                    // fetched: export stays offline.
+                    if (sourceText.isNullOrBlank()) {
+                        missing++
+                        return@mapNotNull null
                     }
-                    // Persisted DB bodies win; otherwise use the provider.
-                    val sourceText = bodyHtml ?: content?.html ?: return@mapNotNull null
-                    val chapterUrl = content?.chapterUrl
-                        ?: chapter.url
-                        ?: "$bookUrl#chapter=${chapter.index}"
+                    val chapterUrl = chapter.url ?: "$bookUrl#chapter=${chapter.index}"
                     val sourceHtml = resolveImageSources(sourceText, chapterUrl)
                     val html = if (includeTranslation) {
                         val translations = try {
@@ -117,8 +135,7 @@ class BookEpubExporter(
                     } else {
                         sourceHtml
                     }
-                    val title = (content?.title?.ifBlank { chapter.title } ?: chapter.title)
-                        .ifBlank { "Chapter ${chapter.index}" }
+                    val title = chapter.title.ifBlank { "Chapter ${chapter.index}" }
                     title to html
                 }
             }
@@ -135,9 +152,14 @@ class BookEpubExporter(
         try {
             exportStreaming(
                 outputStream = outputStream,
-                bookTitle = details.title.ifBlank { "book" },
-                language = details.originLanguage?.trim()?.takeIf { it.isNotEmpty() } ?: "und",
-                totalChapters = chapters.size,
+                bookTitle = title?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: details.title.ifBlank { "book" },
+                // dc:language must be a BCP47 code ("en"), never a display name:
+                // normalize whatever the caller or the source metadata says.
+                language = (languageTag(language) ?: languageTag(details.originLanguage))
+                    ?.lowercase(Locale.US)
+                    ?: "und",
+                totalChapters = chaptersToWrite.size,
                 chapterLoader = chapterLoader,
                 coverBytes = cover,
                 description = details.description,
@@ -148,8 +170,12 @@ class BookEpubExporter(
                         when {
                             src.startsWith("file:") -> readFileUrlBytes(src)
                             src.startsWith("http://") || src.startsWith("https://") ->
-                                fetchImage(sourceId, src)
-                                    ?.takeIf { it.size <= MAX_EXPORT_IMAGE_BYTES }
+                                if (System.currentTimeMillis() > remoteImageDeadline) {
+                                    null
+                                } else {
+                                    fetchImage(sourceId, src)
+                                        ?.takeIf { it.size <= MAX_EXPORT_IMAGE_BYTES }
+                                }
                             else -> null
                         }
                     } catch (e: CancellationException) {
@@ -163,9 +189,33 @@ class BookEpubExporter(
                     onProgress(done, total)
                 },
             )
+            if (missing > 0) {
+                MiruLog.event(
+                    "book",
+                    "epub-skip",
+                    "book" to MiruLog.idHash(bookUrl),
+                    "missing" to missing,
+                    "written" to written,
+                )
+            }
             EpubExportResult.Success(written)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: IllegalArgumentException) {
+            // The core writer refuses a book with nothing written (stale
+            // "downloaded" rows). Only that case is "nothing local to export";
+            // any other argument failure stays a visible error.
+            if (written > 0) {
+                return@withContext EpubExportResult.Failure(e.message ?: "EPUB export failed")
+            }
+            MiruLog.event(
+                "book",
+                "epub-empty",
+                "book" to MiruLog.idHash(bookUrl),
+                "chapters" to chaptersToWrite.size,
+                "missing" to missing,
+            )
+            EpubExportResult.NoChapters
         } catch (e: Exception) {
             EpubExportResult.Failure(e.message ?: "EPUB export failed")
         }
@@ -238,6 +288,9 @@ internal fun readFileUrlBytes(src: String): ByteArray? {
 
 private const val MAX_EXPORT_IMAGE_BYTES = 32L * 1024 * 1024
 
+// Whole-export budget for remote chapter images (not per image).
+private const val REMOTE_IMAGE_BUDGET_MS = 60_000L
+
 private val ImageSrcTag = Regex(
     """(?i)(<img\b[^>]*?\bsrc\s*=\s*["'])([^"']*)(["'])""",
 )
@@ -263,15 +316,63 @@ internal fun resolveImageSources(html: String, chapterUrl: String): String {
     }
 }
 
-/** Human-safe EPUB file name: "<title>.epub" with path/reserved chars cut. */
-internal fun epubFileName(title: String): String {
+/**
+ * Human-safe EPUB file name: "<title>[<LANG> Translated|Original].epub" with
+ * path/reserved chars cut. The language tag keeps the original and the
+ * translated export of one book apart instead of overwriting each other.
+ */
+internal fun epubFileName(
+    title: String,
+    languageCode: String? = null,
+    translated: Boolean = false,
+): String {
     val base = title.trim()
         .replace(Regex("""[\\/:*?"<>|\u0000-\u001F]"""), "_")
         .replace(Regex("\\s+"), " ")
         .trim(' ', '.')
         .take(120)
         .ifBlank { "book" }
-    return "$base.epub"
+    return "$base${epubLanguageTag(languageCode, translated)}.epub"
+}
+
+/**
+ * Display title carried into the EPUB metadata, so a local reader shows
+ * "Shadow Slave[RU Translated]" instead of a bare title that hides whether the
+ * file is the original or a translation.
+ */
+internal fun epubDisplayTitle(
+    title: String,
+    languageCode: String? = null,
+    translated: Boolean = false,
+): String = title.trim().ifBlank { "book" } + epubLanguageTag(languageCode, translated)
+
+private fun epubLanguageTag(languageCode: String?, translated: Boolean): String =
+    languageCode?.trim()?.takeIf { it.isNotEmpty() }
+        ?.let { "[${it.uppercase(Locale.US)} ${if (translated) "Translated" else "Original"}]" }
+        .orEmpty()
+
+/**
+ * ISO code for the language a book or a translation mode reports. Plugins send
+ * either a code ("en", "eng") or a display name ("English", "Korean"); an
+ * unknown value yields null and the file name just omits the tag.
+ */
+internal fun languageTag(value: String?): String? {
+    val raw = value?.trim().orEmpty()
+    if (raw.isEmpty()) return null
+    if (raw.length in 2..3 && raw.all { it in 'a'..'z' || it in 'A'..'Z' }) {
+        return raw.uppercase(Locale.US)
+    }
+    // shortcut: reverse lookup over the JDK's ISO table, enough for the display
+    // names plugins send; extend with an explicit map if a source returns
+    // regional names ("Brazilian Portuguese").
+    return IsoLanguageCodes[raw.lowercase(Locale.US)]
+}
+
+private val IsoLanguageCodes: Map<String, String> by lazy {
+    Locale.getISOLanguages().associate { code ->
+        Locale.forLanguageTag(code).getDisplayLanguage(Locale.ENGLISH).lowercase(Locale.US) to
+            code.uppercase(Locale.US)
+    }
 }
 
 private fun htmlEscape(text: String): String = buildString(text.length) {

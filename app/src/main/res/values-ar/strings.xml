@@ -221,7 +221,6 @@
     <string name="tool_epub_include_translation">تضمين الفصول المترجمة</string>
     <string name="tool_epub_translation_hint">تُضمَّن الفصول المترجمة في القارئ فقط. لا تُترجم أي فصول جديدة أثناء التصدير.</string>
     <string name="tool_epub_export">تصدير</string>
-    <string name="tool_epub_started">بدأ تصدير EPUB…</string>
     <string name="tool_epub_success_fmt">تم تصدير EPUB: %1$d فصل</string>
     <string name="tool_epub_failed_fmt">فشل تصدير EPUB: %1$s</string>
     <string name="tool_epub_no_chapters">لا توجد فصول للتصدير</string>
@@ -229,10 +228,17 @@
     <string name="tool_cbz">تصدير إلى CBZ</string>
     <string name="tool_cbz_desc">الفصول المنزّلة، أرشيف لكل فصل</string>
     <string name="tool_cbz_no_chapters">لا توجد فصول منزّلة</string>
-    <string name="tool_cbz_started">جارٍ التصدير إلى CBZ…</string>
     <string name="tool_cbz_success_fmt">صُدِّر %1$d فصل</string>
     <string name="tool_cbz_failed_fmt">فشل تصدير CBZ: %1$s</string>
     <string name="tool_cbz_unavailable">تصدير CBZ غير متاح هنا</string>
+    <string name="book_export_channel_name">تصدير الكتب</string>
+    <string name="book_export_channel_desc">تقدم تصدير EPUB وCBZ</string>
+    <string name="book_export_progress_fmt">الفصول: %1$d من %2$d</string>
+    <string name="book_export_preparing">جارٍ التحضير…</string>
+    <string name="book_export_cancel">إلغاء</string>
+    <string name="book_export_cancelled">أُلغي التصدير</string>
+    <string name="book_export_failed_title">فشل التصدير</string>
+    <string name="book_export_busy">هناك تصدير آخر قيد التشغيل بالفعل</string>
     <string name="tool_regex">قواعد تنظيف التعبيرات النمطية</string>
     <string name="tool_regex_desc">إزالة الأسطر غير المرغوبة قبل وصولها إلى القارئ</string>
     <string name="book_order_newest">الأحدث</string>

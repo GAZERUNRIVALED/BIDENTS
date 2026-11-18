@@ -141,6 +141,30 @@ class EpubExporterTest {
     }
 
     @Test
+    fun `html paragraphs become separate xhtml paragraphs`() {
+        val chapter = unzip(
+            exportToBytes(chapters = listOf("Chapter" to "<p>First line</p><p>Second line</p>"))
+        ).getValue("OEBPS/chapter-001.xhtml")
+
+        // Scraper bodies carry no blank lines between <p> tags; a whole chapter
+        // merged into one <p> is the bug this guards.
+        assertTrue(chapter.contains("<p>First line</p>"))
+        assertTrue(chapter.contains("<p>Second line</p>"))
+        assertFalse(chapter.contains("First line</p><p>Second line"))
+    }
+
+    @Test
+    fun `line breaks from br survive as xhtml breaks`() {
+        val chapter = unzip(
+            exportToBytes(chapters = listOf("Verse" to "<p>First line<br/>Second line</p>"))
+        ).getValue("OEBPS/chapter-001.xhtml")
+
+        // A raw "\n" inside <p> is collapsed by every reader; the break must be
+        // an actual <br/> element.
+        assertTrue(chapter.contains("<p>First line<br/>Second line</p>"))
+    }
+
+    @Test
     fun `special characters are xml escaped`() {
         val chapter = unzip(
             exportToBytes(chapters = listOf("Esc" to "5 < 10 & 7 > 3 \"quoted\""))

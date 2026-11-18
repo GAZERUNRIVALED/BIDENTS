@@ -136,7 +136,6 @@
 
     <!-- Book screen -->
     <string name="tool_translator_started">Перевод запущен (заглушка)</string>
-    <string name="tool_epub_started">Экспорт EPUB запущен…</string>
     <string name="tool_epub_translation_hint">Включаются только главы, уже переведённые в читалке. Во время экспорта ничего нового не переводится.</string>
     <string name="tool_epub_success_fmt">EPUB сохранён: глав — %1$d</string>
     <string name="tool_epub_failed_fmt">Не удалось сохранить EPUB: %1$s</string>
@@ -145,10 +144,17 @@
     <string name="tool_cbz">Экспорт в CBZ</string>
     <string name="tool_cbz_desc">Скачанные главы, одна архив на главу</string>
     <string name="tool_cbz_no_chapters">Нет скачанных глав</string>
-    <string name="tool_cbz_started">Экспорт в CBZ…</string>
     <string name="tool_cbz_success_fmt">Экспортировано глав: %1$d</string>
     <string name="tool_cbz_failed_fmt">Не удалось экспортировать CBZ: %1$s</string>
     <string name="tool_cbz_unavailable">Экспорт CBZ здесь недоступен</string>
+    <string name="book_export_channel_name">Экспорт книг</string>
+    <string name="book_export_channel_desc">Прогресс экспорта EPUB и CBZ</string>
+    <string name="book_export_progress_fmt">Глав: %1$d из %2$d</string>
+    <string name="book_export_preparing">Подготовка…</string>
+    <string name="book_export_cancel">Отмена</string>
+    <string name="book_export_cancelled">Экспорт отменён</string>
+    <string name="book_export_failed_title">Экспорт не удался</string>
+    <string name="book_export_busy">Другой экспорт уже выполняется</string>
     <string name="book_review_translate_stub">Перевод выполняется переводчиком (заглушка)</string>
     <string name="book_plugin">плагин</string>
     <string name="book_by_author_fmt">автор: %1$s</string>

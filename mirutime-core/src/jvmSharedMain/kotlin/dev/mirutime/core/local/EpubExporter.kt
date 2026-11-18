@@ -18,6 +18,14 @@ import java.util.zip.ZipOutputStream
 // (\r\n\r\n) is not glued into a single paragraph.
 private val PARAGRAPH_BREAK = Regex("\\n\\s*\\n")
 
+// Scraper HTML is usually `<p>…</p><p>…</p>` with no blank lines between the
+// tags. Stripping tags alone glued a whole chapter into one paragraph, so
+// block-level tags become paragraph boundaries and <br> stays a line break.
+private val BLOCK_TAG_BREAK = Regex(
+    "(?i)</?(?:p|div|li|h[1-6]|blockquote|tr|section|article|figure|figcaption|pre|ul|ol|table|td|th)\\b[^>]*>"
+)
+private val BR_TAG_BREAK = Regex("(?i)<br\\s*/?>")
+
 // src of an <img ...> tag (tag and attribute names are case-insensitive).
 private val IMG_SRC_REGEX = Regex("""<img\b[^>]*?\bsrc\s*=\s*["']([^"']*)["'][^>]*>""", RegexOption.IGNORE_CASE)
 
@@ -81,8 +89,14 @@ private fun imageExtension(mime: String): String = when (mime) {
     else -> "jpg"
 }
 
-/** HTML fragment → paragraphs: strip tags, unescape entities, split on blank lines. */
+/** Paragraph text as XHTML: escaped, with <br> breaks kept visible. */
+private fun paragraphXml(text: String): String =
+    xmlEscape(text).replace("\n", "<br/>")
+
+/** HTML fragment → paragraphs: block tags split, tags strip, entities unescape. */
 private fun textToParagraphs(html: String): List<String> = html
+    .replace(BLOCK_TAG_BREAK, "\n\n")
+    .replace(BR_TAG_BREAK, "\n")
     .replace(STRIP_HTML_TAGS, "")
     .let { Parser.unescapeEntities(it, false) }
     .split(PARAGRAPH_BREAK)
@@ -231,7 +245,7 @@ suspend fun exportStreaming(
                         val textPart = trimmedBody.substring(lastEnd, m.range.first)
                         textToParagraphs(textPart).forEach { p ->
                             if (isNotEmpty()) appendLine()
-                            append("""    <p>${xmlEscape(p)}</p>""")
+                            append("""    <p>${paragraphXml(p)}</p>""")
                         }
                         appendLine()
                         // Decode HTML entities in the raw src (&amp; in URLs is
@@ -255,7 +269,7 @@ suspend fun exportStreaming(
                     }
                     textToParagraphs(trimmedBody.substring(lastEnd)).forEach { p ->
                         if (isNotEmpty()) appendLine()
-                        append("""    <p>${xmlEscape(p)}</p>""")
+                        append("""    <p>${paragraphXml(p)}</p>""")
                     }
                 }
                 zip.writeEntry(

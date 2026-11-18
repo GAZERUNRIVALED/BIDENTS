@@ -2,6 +2,7 @@ package dev.mirutime.app.features.book.ui
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -178,13 +179,15 @@ import dev.mirutime.app.features.book.data.MembershipResult
 import dev.mirutime.app.features.book.data.PluginBookIndex
 import dev.mirutime.app.shell.LocalImeBottom
 import dev.mirutime.app.features.book.data.BookEpubExporter
+import dev.mirutime.app.features.book.data.BookExportKind
+import dev.mirutime.app.features.book.data.BookExportMonitor
+import dev.mirutime.app.features.book.data.BookExportService
 import dev.mirutime.app.features.book.data.BookCbzExporter
-import dev.mirutime.app.features.book.data.CbzExportResult
-import dev.mirutime.app.features.book.data.SafCbzOutput
 import dev.mirutime.app.features.finder.data.isLocalFileBook
 import dev.mirutime.app.features.library.data.LocalBookProvider
-import dev.mirutime.app.features.book.data.EpubExportResult
+import dev.mirutime.app.features.book.data.epubDisplayTitle
 import dev.mirutime.app.features.book.data.epubFileName
+import dev.mirutime.app.features.book.data.languageTag
 import dev.mirutime.app.features.book.domain.BookActionKind
 import dev.mirutime.app.features.book.domain.BookChapter
 import dev.mirutime.app.features.book.domain.BookDetails
@@ -242,7 +245,6 @@ import dev.mirutime.core.api.MiruError
 import dev.mirutime.core.api.Outcome
 import dev.mirutime.core.api.PluginError
 import dev.mirutime.core.api.VideoStream
-import java.io.File
 import java.util.Locale
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.roundToInt
@@ -437,8 +439,12 @@ internal fun BookScreen(
     var epubSheetOpen by rememberSaveable { mutableStateOf(false) }
     var selectSheetOpen by rememberSaveable { mutableStateOf(false) }
     var epubIncludeTranslation by rememberSaveable { mutableStateOf(true) }
-    var epubExporting by remember { mutableStateOf(false) }
-    var cbzExporting by remember { mutableStateOf(false) }
+    // Export state lives in the service, not this composition, so the tiles and
+    // the notification report the same real progress after a navigation.
+    val bookExport by BookExportMonitor.progress.collectAsState()
+    val epubExporting = bookExport?.let { it.kind == BookExportKind.Epub && it.bookUrl == bookUrl } == true
+    val cbzExporting = bookExport?.let { it.kind == BookExportKind.Cbz && it.bookUrl == bookUrl } == true
+    val exportBusy = bookExport != null
     val mangaBook = book?.contentType == ContentType.Manga
     // Audio rides the video player but exposes no reader/download actions.
     val isAudioBook = book?.contentType == ContentType.Audio
@@ -553,6 +559,12 @@ internal fun BookScreen(
     val context = LocalContext.current
     val resources = LocalResources.current
     val ioScope = rememberCoroutineScope()
+    val epubProgressLabel = bookExport
+        ?.takeIf { it.kind == BookExportKind.Epub && it.bookUrl == bookUrl && it.total > 0 }
+        ?.let { resources.getString(R.string.book_export_progress_fmt, it.done, it.total) }
+    val cbzProgressLabel = bookExport
+        ?.takeIf { it.kind == BookExportKind.Cbz && it.bookUrl == bookUrl && it.total > 0 }
+        ?.let { resources.getString(R.string.book_export_progress_fmt, it.done, it.total) }
     LaunchedEffect(videoSourceSheetOpen, videoSourceRefresh) {
         if (!videoSourceSheetOpen) return@LaunchedEffect
         val target = book ?: return@LaunchedEffect
@@ -637,113 +649,53 @@ internal fun BookScreen(
     var pendingTranslationDeleteDone by remember { mutableStateOf<(() -> Unit)?>(null) }
     var seenReadyTranslations by remember(bookUrl) { mutableStateOf(0) }
 
-    // SAF destination for the EPUB. The export itself runs on IO; the sheet
-    // closes first so the system picker is the only thing on screen.
+    // The export reports progress in a notification; ask once, never block the
+    // export on the answer (the tiles show the same progress in-app).
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
+    val ensureExportNotifications = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    // Built by the sheet (it owns the language/translated decision) and read by
+    // the picker callback: the EPUB metadata must say the same as the file name.
+    // Saveable, so a process death behind the system picker cannot drop the tag.
+    var epubDisplayName by rememberSaveable(bookUrl) { mutableStateOf<String?>(null) }
+    var epubDisplayLanguage by rememberSaveable(bookUrl) { mutableStateOf<String?>(null) }
+
+    // Both SAF destinations start the export service, which owns the write:
+    // leaving the page must not cancel it and leave a 0-byte file behind.
     val epubLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/epub+zip"),
     ) { uri ->
         val targetBook = book
-        val targetExporter = exporter
         if (uri == null) return@rememberLauncherForActivityResult
-        if (targetBook == null || targetExporter == null) {
+        if (targetBook == null || exporter == null) {
             bookToast(context, resources.getString(R.string.tool_epub_unavailable))
             return@rememberLauncherForActivityResult
         }
-        val includeTranslation = epubIncludeTranslation
-        ioScope.launch {
-            epubExporting = true
-            MiruLog.event(
-                "book",
-                "epub-start",
-                "book" to MiruLog.idHash(targetBook.bookUrl),
-                "chapters" to targetBook.chapters.size,
-                "translated" to includeTranslation,
-            )
-            bookToast(context, resources.getString(R.string.tool_epub_started))
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    // Export into a local temp file first: a failed/cancelled
-                    // export must not leave a half-written EPUB at the SAF URI.
-                    val temp = runCatching {
-                        File.createTempFile("miru-epub-", ".epub", context.cacheDir)
-                    }.getOrNull()
-                        ?: return@withContext EpubExportResult.Failure(
-                            "Cannot create a temporary export file",
-                        )
-                    try {
-                        val exportResult = runCatching {
-                            temp.outputStream().use { stream ->
-                                targetExporter.export(
-                                    targetBook.bookUrl,
-                                    includeTranslation,
-                                    stream,
-                                )
-                            }
-                        }.getOrElse {
-                            EpubExportResult.Failure(it.message ?: "EPUB export failed")
-                        }
-                        if (exportResult !is EpubExportResult.Success) {
-                            return@withContext exportResult
-                        }
-                        val target = context.contentResolver.openOutputStream(uri)
-                            ?: return@withContext EpubExportResult.Failure(
-                                "Cannot open the selected file",
-                            )
-                        target.use { out ->
-                            temp.inputStream().use { input -> input.copyTo(out) }
-                        }
-                        exportResult
-                    } catch (e: Exception) {
-                        EpubExportResult.Failure(e.message ?: "Cannot write the selected file")
-                    } finally {
-                        temp.delete()
-                    }
-                }
-                when (result) {
-                    is EpubExportResult.Success -> {
-                        MiruLog.event(
-                            "book",
-                            "epub-result",
-                            "book" to MiruLog.idHash(targetBook.bookUrl),
-                            "ok" to true,
-                            "written" to result.chaptersWritten,
-                        )
-                        bookToast(
-                            context,
-                            resources.getString(
-                                R.string.tool_epub_success_fmt,
-                                result.chaptersWritten,
-                            ),
-                        )
-                    }
-                    EpubExportResult.NoChapters -> {
-                        MiruLog.event(
-                            "book",
-                            "epub-result",
-                            "book" to MiruLog.idHash(targetBook.bookUrl),
-                            "ok" to false,
-                            "reason" to "no-chapters",
-                        )
-                        bookToast(context, resources.getString(R.string.tool_epub_no_chapters))
-                    }
-                    is EpubExportResult.Failure -> {
-                        MiruLog.event(
-                            "book",
-                            "epub-result",
-                            "book" to MiruLog.idHash(targetBook.bookUrl),
-                            "ok" to false,
-                            "reason" to "failure",
-                        )
-                        bookToast(
-                            context,
-                            resources.getString(R.string.tool_epub_failed_fmt, result.message),
-                        )
-                    }
-                }
-            } finally {
-                epubExporting = false
-            }
-        }
+        ensureExportNotifications()
+        MiruLog.event(
+            "book",
+            "export-launch",
+            "kind" to "epub",
+            "book" to MiruLog.idHash(targetBook.bookUrl),
+            "translated" to epubIncludeTranslation,
+        )
+        BookExportService.startEpub(
+            context = context,
+            bookUrl = targetBook.bookUrl,
+            uri = uri,
+            includeTranslation = epubIncludeTranslation,
+            title = epubDisplayName ?: targetBook.title,
+            language = epubDisplayLanguage,
+        )
     }
 
     // SAF destination for a CBZ export: a folder, not a file, because one
@@ -752,80 +704,19 @@ internal fun BookScreen(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
         val targetBook = book
-        val targetExporter = cbzExporter
         if (uri == null) return@rememberLauncherForActivityResult
-        if (targetBook == null || targetExporter == null) {
+        if (targetBook == null || cbzExporter == null) {
             bookToast(context, resources.getString(R.string.tool_cbz_unavailable))
             return@rememberLauncherForActivityResult
         }
-        ioScope.launch {
-            cbzExporting = true
-            MiruLog.event(
-                "book",
-                "cbz-start",
-                "book" to MiruLog.idHash(targetBook.bookUrl),
-                "chapters" to targetBook.chapters.count { it.downloaded },
-            )
-            bookToast(context, resources.getString(R.string.tool_cbz_started))
-            try {
-                // A SAF provider can refuse the directory or fail mid-write;
-                // that must surface as a toast, never as a silent no-op.
-                val result = try {
-                    targetExporter.export(
-                        targetBook.bookUrl,
-                        SafCbzOutput(context, uri),
-                    )
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    CbzExportResult.Failure(e.message ?: "CBZ export failed")
-                }
-                when (result) {
-                    is CbzExportResult.Success -> {
-                        MiruLog.event(
-                            "book",
-                            "cbz-result",
-                            "book" to MiruLog.idHash(targetBook.bookUrl),
-                            "ok" to true,
-                            "written" to result.chaptersWritten,
-                            "skipped" to result.chaptersSkipped,
-                        )
-                        bookToast(
-                            context,
-                            resources.getString(
-                                R.string.tool_cbz_success_fmt,
-                                result.chaptersWritten,
-                            ),
-                        )
-                    }
-                    CbzExportResult.NoChapters -> {
-                        MiruLog.event(
-                            "book",
-                            "cbz-result",
-                            "book" to MiruLog.idHash(targetBook.bookUrl),
-                            "ok" to false,
-                            "reason" to "no-chapters",
-                        )
-                        bookToast(context, resources.getString(R.string.tool_cbz_no_chapters))
-                    }
-                    is CbzExportResult.Failure -> {
-                        MiruLog.event(
-                            "book",
-                            "cbz-result",
-                            "book" to MiruLog.idHash(targetBook.bookUrl),
-                            "ok" to false,
-                            "reason" to "failure",
-                        )
-                        bookToast(
-                            context,
-                            resources.getString(R.string.tool_cbz_failed_fmt, result.message),
-                        )
-                    }
-                }
-            } finally {
-                cbzExporting = false
-            }
-        }
+        ensureExportNotifications()
+        MiruLog.event(
+            "book",
+            "export-launch",
+            "kind" to "cbz",
+            "book" to MiruLog.idHash(targetBook.bookUrl),
+        )
+        BookExportService.startCbz(context, targetBook.bookUrl, uri)
     }
 
     // Snapshot loader: the current content stays on screen during a reload
@@ -1892,18 +1783,20 @@ internal fun BookScreen(
                             .orEmpty()
                             .count { it.enabled },
                         epubChapters = downloadedCount,
-                        epubEnabled = exporter != null && !epubExporting && downloadedCount > 0,
+                        epubEnabled = exporter != null && !exportBusy && downloadedCount > 0,
                         epubBusy = epubExporting,
+                        epubProgress = epubProgressLabel,
                         manga = mangaBook,
                         video = isVideoBook,
                         cbzChapters = downloadedCount,
-                        cbzEnabled = cbzExporter != null && !cbzExporting && !isLocalBook,
+                        cbzEnabled = cbzExporter != null && !exportBusy && !isLocalBook,
                         cbzBusy = cbzExporting,
+                        cbzProgress = cbzProgressLabel,
                         migrateEnabled = migration != null && current.inLibrary &&
                             !current.bookUrl.startsWith("local"),
                         onTranslator = { translatorSheetOpen = true },
-                        onEpub = { if (!epubExporting) epubSheetOpen = true },
-                        onCbz = { if (!cbzExporting) cbzLauncher.launch(null) },
+                        onEpub = { if (!exportBusy) epubSheetOpen = true },
+                        onCbz = { if (!exportBusy) cbzLauncher.launch(null) },
                         onVideoSource = { videoSourceSheetOpen = true },
                         onRegex = { onOpenRegex(bookUrl) },
                         onMigrate = { migrationSheetOpen = true },
@@ -2387,8 +2280,28 @@ internal fun BookScreen(
                     epubIncludeTranslation = includeTranslation
                     if (exporter == null) {
                         bookToast(context, resources.getString(R.string.tool_epub_unavailable))
-                    } else if (!epubExporting) {
-                        epubLauncher.launch(epubFileName(current.title))
+                    } else if (!exportBusy) {
+                        // The tag keeps the original and the translated export
+                        // of the same book from overwriting each other.
+                        // "Translated" only when the file really carries translations:
+                        // the chip alone (nothing translated yet) would mislabel it.
+                        val translated = includeTranslation && translationMode != null &&
+                            current.chapters.any { it.translated }
+                        // Plugins often omit the origin language; the translation
+                        // source is the best local hint, and the tag is simply
+                        // dropped when neither is known.
+                        val languageCode = if (translated) {
+                            translationMode?.target
+                        } else {
+                            languageTag(current.originLanguage)
+                                ?: languageTag(translationMode?.source)
+                        }
+                        epubDisplayName =
+                            epubDisplayTitle(current.title, languageCode, translated)
+                        epubDisplayLanguage = languageCode
+                        epubLauncher.launch(
+                            epubFileName(current.title, languageCode, translated),
+                        )
                     }
                 },
             )
@@ -3663,11 +3576,13 @@ private fun ToolsSection(
     epubChapters: Int,
     epubEnabled: Boolean,
     epubBusy: Boolean,
+    epubProgress: String?,
     manga: Boolean,
     video: Boolean,
     cbzChapters: Int,
     cbzEnabled: Boolean,
     cbzBusy: Boolean,
+    cbzProgress: String?,
     migrateEnabled: Boolean,
     onTranslator: () -> Unit,
     onEpub: () -> Unit,
@@ -3695,7 +3610,7 @@ private fun ToolsSection(
             icon = Icons.Filled.Download,
             title = stringResource(R.string.tool_epub),
             subtitle = when {
-                epubBusy -> stringResource(R.string.loading_exporting)
+                epubBusy -> epubProgress ?: stringResource(R.string.loading_exporting)
                 epubChapters == 0 -> stringResource(R.string.book_tool_epub_no_chapters)
                 else -> stringResource(R.string.tool_epub_desc)
             },
@@ -3711,7 +3626,7 @@ private fun ToolsSection(
             icon = Icons.Filled.Download,
             title = stringResource(R.string.tool_cbz),
             subtitle = when {
-                cbzBusy -> stringResource(R.string.loading_exporting)
+                cbzBusy -> cbzProgress ?: stringResource(R.string.loading_exporting)
                 cbzChapters == 0 -> stringResource(R.string.tool_cbz_no_chapters)
                 else -> stringResource(R.string.tool_cbz_desc)
             },

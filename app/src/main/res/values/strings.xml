@@ -232,7 +232,6 @@
     <string name="tool_epub_include_translation">Include translated chapters</string>
     <string name="tool_epub_translation_hint">Only chapters already translated in the reader are included. Nothing new is translated during export.</string>
     <string name="tool_epub_export">Export</string>
-    <string name="tool_epub_started">EPUB export started…</string>
     <string name="tool_epub_success_fmt">EPUB exported: %1$d chapters</string>
     <string name="tool_epub_failed_fmt">EPUB export failed: %1$s</string>
     <string name="tool_epub_no_chapters">No chapters to export</string>
@@ -240,10 +239,17 @@
     <string name="tool_cbz">Export to CBZ</string>
     <string name="tool_cbz_desc">Downloaded chapters, one archive per chapter</string>
     <string name="tool_cbz_no_chapters">No downloaded chapters</string>
-    <string name="tool_cbz_started">Exporting to CBZ…</string>
     <string name="tool_cbz_success_fmt">Exported %1$d chapters</string>
     <string name="tool_cbz_failed_fmt">CBZ export failed: %1$s</string>
     <string name="tool_cbz_unavailable">CBZ export is unavailable here</string>
+    <string name="book_export_channel_name">Book export</string>
+    <string name="book_export_channel_desc">EPUB and CBZ export progress</string>
+    <string name="book_export_progress_fmt">%1$d/%2$d chapters</string>
+    <string name="book_export_preparing">Preparing…</string>
+    <string name="book_export_cancel">Cancel</string>
+    <string name="book_export_cancelled">Export cancelled</string>
+    <string name="book_export_failed_title">Export failed</string>
+    <string name="book_export_busy">Another export is already running</string>
     <string name="tool_regex">Regex cleanup rules</string>
     <string name="tool_regex_desc">Scrub junk lines before they reach the reader</string>
     <string name="book_order_newest">Newest</string>

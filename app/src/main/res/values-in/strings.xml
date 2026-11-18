@@ -222,7 +222,6 @@
     <string name="tool_epub_include_translation">Sertakan bab terjemahan</string>
     <string name="tool_epub_translation_hint">Hanya bab yang sudah diterjemahkan di pembaca yang disertakan. Tidak ada yang baru diterjemahkan saat ekspor.</string>
     <string name="tool_epub_export">Ekspor</string>
-    <string name="tool_epub_started">Ekspor EPUB dimulai…</string>
     <string name="tool_epub_success_fmt">EPUB diekspor: %1$d bab</string>
     <string name="tool_epub_failed_fmt">Ekspor EPUB gagal: %1$s</string>
     <string name="tool_epub_no_chapters">Tidak ada bab untuk diekspor</string>
@@ -230,10 +229,17 @@
     <string name="tool_cbz">Ekspor ke CBZ</string>
     <string name="tool_cbz_desc">Bab terunduh, satu arsip per bab</string>
     <string name="tool_cbz_no_chapters">Tidak ada bab terunduh</string>
-    <string name="tool_cbz_started">Mengekspor ke CBZ…</string>
     <string name="tool_cbz_success_fmt">%1$d bab diekspor</string>
     <string name="tool_cbz_failed_fmt">Ekspor CBZ gagal: %1$s</string>
     <string name="tool_cbz_unavailable">Ekspor CBZ tidak tersedia di sini</string>
+    <string name="book_export_channel_name">Ekspor buku</string>
+    <string name="book_export_channel_desc">Progres ekspor EPUB dan CBZ</string>
+    <string name="book_export_progress_fmt">%1$d/%2$d bab</string>
+    <string name="book_export_preparing">Menyiapkan…</string>
+    <string name="book_export_cancel">Batal</string>
+    <string name="book_export_cancelled">Ekspor dibatalkan</string>
+    <string name="book_export_failed_title">Ekspor gagal</string>
+    <string name="book_export_busy">Ekspor lain sedang berjalan</string>
     <string name="tool_regex">Aturan pembersihan ekspresi reguler</string>
     <string name="tool_regex_desc">Bersihkan baris sampah sebelum masuk ke pembaca</string>
     <string name="book_order_newest">Terbaru</string>

@@ -222,7 +222,6 @@
     <string name="tool_epub_include_translation">Çevrilmiş bölümleri dahil et</string>
     <string name="tool_epub_translation_hint">Yalnızca okuyucuda zaten çevrilmiş bölümler dahil edilir. Dışa aktarma sırasında yeni bir şey çevrilmez.</string>
     <string name="tool_epub_export">Dışa aktar</string>
-    <string name="tool_epub_started">EPUB dışa aktarma başladı…</string>
     <string name="tool_epub_success_fmt">EPUB dışa aktarıldı: %1$d bölüm</string>
     <string name="tool_epub_failed_fmt">EPUB dışa aktarma başarısız: %1$s</string>
     <string name="tool_epub_no_chapters">Dışa aktarılacak bölüm yok</string>
@@ -230,10 +229,17 @@
     <string name="tool_cbz">CBZ olarak dışa aktar</string>
     <string name="tool_cbz_desc">İndirilen bölümler, her bölüm için bir arşiv</string>
     <string name="tool_cbz_no_chapters">İndirilmiş bölüm yok</string>
-    <string name="tool_cbz_started">CBZ olarak dışa aktarılıyor…</string>
     <string name="tool_cbz_success_fmt">%1$d bölüm dışa aktarıldı</string>
     <string name="tool_cbz_failed_fmt">CBZ dışa aktarma başarısız: %1$s</string>
     <string name="tool_cbz_unavailable">CBZ dışa aktarma burada kullanılamıyor</string>
+    <string name="book_export_channel_name">Kitap dışa aktarma</string>
+    <string name="book_export_channel_desc">EPUB ve CBZ dışa aktarma ilerlemesi</string>
+    <string name="book_export_progress_fmt">%1$d/%2$d bölüm</string>
+    <string name="book_export_preparing">Hazırlanıyor…</string>
+    <string name="book_export_cancel">İptal</string>
+    <string name="book_export_cancelled">Dışa aktarma iptal edildi</string>
+    <string name="book_export_failed_title">Dışa aktarma başarısız</string>
+    <string name="book_export_busy">Başka bir dışa aktarma zaten çalışıyor</string>
     <string name="tool_regex">Düzenli ifade temizlik kuralları</string>
     <string name="tool_regex_desc">Gereksiz satırları okuyucuya ulaşmadan temizleyin</string>
     <string name="book_order_newest">En yeni</string>

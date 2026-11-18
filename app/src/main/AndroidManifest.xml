@@ -84,6 +84,13 @@
             android:stopWithTask="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- EPUB/CBZ export: survives navigation and screen-off, shows progress. -->
+        <service
+            android:name=".features.book.data.BookExportService"
+            android:exported="false"
+            android:stopWithTask="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- Untrusted PDF parsing: no permissions, no network, no app files.
         Only duplicated file descriptors cross the boundary. -->
         <service

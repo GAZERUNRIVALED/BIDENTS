@@ -222,7 +222,6 @@
     <string name="tool_epub_include_translation">Inclure les chapitres traduits</string>
     <string name="tool_epub_translation_hint">Seuls les chapitres déjà traduits dans le lecteur sont inclus. Rien de nouveau n\'est traduit pendant l\'export.</string>
     <string name="tool_epub_export">Exporter</string>
-    <string name="tool_epub_started">Export EPUB lancé…</string>
     <string name="tool_epub_success_fmt">EPUB exporté : %1$d chapitres</string>
     <string name="tool_epub_failed_fmt">Échec de l\'export EPUB : %1$s</string>
     <string name="tool_epub_no_chapters">Aucun chapitre à exporter</string>
@@ -230,10 +229,17 @@
     <string name="tool_cbz">Exporter en CBZ</string>
     <string name="tool_cbz_desc">Chapitres téléchargés, une archive par chapitre</string>
     <string name="tool_cbz_no_chapters">Aucun chapitre téléchargé</string>
-    <string name="tool_cbz_started">Export en CBZ…</string>
     <string name="tool_cbz_success_fmt">%1$d chapitres exportés</string>
     <string name="tool_cbz_failed_fmt">Échec de l\'export CBZ : %1$s</string>
     <string name="tool_cbz_unavailable">L\'export CBZ est indisponible ici</string>
+    <string name="book_export_channel_name">Export de livres</string>
+    <string name="book_export_channel_desc">Progression de l\'export EPUB et CBZ</string>
+    <string name="book_export_progress_fmt">%1$d/%2$d chapitres</string>
+    <string name="book_export_preparing">Préparation…</string>
+    <string name="book_export_cancel">Annuler</string>
+    <string name="book_export_cancelled">Export annulé</string>
+    <string name="book_export_failed_title">Échec de l\'export</string>
+    <string name="book_export_busy">Un autre export est déjà en cours</string>
     <string name="tool_regex">Règles de nettoyage par expressions régulières</string>
     <string name="tool_regex_desc">Éliminez les lignes parasites avant qu\'elles n\'atteignent le lecteur</string>
     <string name="book_order_newest">Plus récents</string>

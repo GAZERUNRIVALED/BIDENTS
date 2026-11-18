@@ -222,7 +222,6 @@
     <string name="tool_epub_include_translation">Gồm các chương đã dịch</string>
     <string name="tool_epub_translation_hint">Chỉ gồm các chương đã dịch trong trình đọc. Không dịch gì mới khi xuất.</string>
     <string name="tool_epub_export">Xuất</string>
-    <string name="tool_epub_started">Đã bắt đầu xuất EPUB…</string>
     <string name="tool_epub_success_fmt">Đã xuất EPUB: %1$d chương</string>
     <string name="tool_epub_failed_fmt">Xuất EPUB thất bại: %1$s</string>
     <string name="tool_epub_no_chapters">Không có chương để xuất</string>
@@ -230,10 +229,17 @@
     <string name="tool_cbz">Xuất sang CBZ</string>
     <string name="tool_cbz_desc">Các chương đã tải, mỗi chương một tệp nén</string>
     <string name="tool_cbz_no_chapters">Không có chương đã tải</string>
-    <string name="tool_cbz_started">Đang xuất sang CBZ…</string>
     <string name="tool_cbz_success_fmt">Đã xuất %1$d chương</string>
     <string name="tool_cbz_failed_fmt">Xuất CBZ thất bại: %1$s</string>
     <string name="tool_cbz_unavailable">Xuất CBZ không khả dụng ở đây</string>
+    <string name="book_export_channel_name">Xuất sách</string>
+    <string name="book_export_channel_desc">Tiến trình xuất EPUB và CBZ</string>
+    <string name="book_export_progress_fmt">%1$d/%2$d chương</string>
+    <string name="book_export_preparing">Đang chuẩn bị…</string>
+    <string name="book_export_cancel">Hủy</string>
+    <string name="book_export_cancelled">Đã hủy xuất</string>
+    <string name="book_export_failed_title">Xuất thất bại</string>
+    <string name="book_export_busy">Một lần xuất khác đang chạy</string>
     <string name="tool_regex">Quy tắc làm sạch biểu thức chính quy</string>
     <string name="tool_regex_desc">Loại bỏ dòng rác trước khi vào trình đọc</string>
     <string name="book_order_newest">Mới nhất</string>

@@ -59,7 +59,11 @@ internal class BookCbzExporter(
     private val tempDir: File,
     private val cover: suspend (String) -> ByteArray? = { null },
 ) {
-    suspend fun export(bookUrl: String, target: CbzExportTarget): CbzExportResult =
+    suspend fun export(
+        bookUrl: String,
+        target: CbzExportTarget,
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ): CbzExportResult =
         withContext(Dispatchers.IO) {
             if (isLocalBook(bookUrl)) return@withContext CbzExportResult.NoChapters
             val info = bookInfo(bookUrl)
@@ -126,6 +130,7 @@ internal class BookCbzExporter(
                         }
                         target.writeChapter(handle, chapterFileName(chapter), temp)
                         written++
+                        onProgress(written, exportable.size)
                     } finally {
                         temp.delete()
                     }

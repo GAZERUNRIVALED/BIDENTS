@@ -73,9 +73,10 @@ class BookEpubExporterTest {
         index = index,
         title = "Chapter $index",
         isRead = false,
-        downloaded = false,
+        downloaded = true,
         translated = false,
         downloading = false,
+        url = "test://book/chapter-$index",
     )
 
     private fun content(index: Int, html: String) = ChapterContent(
@@ -104,6 +105,69 @@ class BookEpubExporterTest {
         assertEquals("My Book.epub", epubFileName("  My   Book  "))
         assertEquals("book.epub", epubFileName("   "))
         assertEquals("book.epub", epubFileName("..."))
+    }
+
+    @Test
+    fun `file name carries the language and the translation state`() {
+        assertEquals(
+            "Shadow Slave[RU Translated].epub",
+            epubFileName("Shadow Slave", languageCode = "ru", translated = true),
+        )
+        assertEquals(
+            "Shadow Slave[EN Original].epub",
+            epubFileName("Shadow Slave", languageCode = "en", translated = false),
+        )
+        // No usable language: no tag at all, never "[null Original]".
+        assertEquals("Shadow Slave.epub", epubFileName("Shadow Slave", languageCode = null))
+    }
+
+    @Test
+    fun `metadata title carries the language and translation tag`() {
+        assertEquals(
+            "Shadow Slave[RU Translated]",
+            epubDisplayTitle("Shadow Slave", languageCode = "ru", translated = true),
+        )
+        assertEquals(
+            "Shadow Slave[EN Original]",
+            epubDisplayTitle("Shadow Slave", languageCode = "en", translated = false),
+        )
+        assertEquals("Shadow Slave", epubDisplayTitle("Shadow Slave"))
+    }
+
+    @Test
+    fun `export writes the tagged title and a bcp47 language`() {
+        val provider = FakeProvider(
+            details(listOf(chapter(1))),
+            mapOf(1 to content(1, "<p>Text</p>")),
+        )
+        val out = ByteArrayOutputStream()
+
+        val result = runBlocking {
+            BookEpubExporter(provider, chapterBodyLoader = { _, _ -> "<p>Text</p>" }).export(
+                bookUrl = "test://book",
+                includeTranslation = false,
+                outputStream = out,
+                title = "Test Book[RU Translated]",
+                language = "RU",
+            )
+        }
+
+        assertTrue(result is EpubExportResult.Success)
+        val opf = unzip(out.toByteArray()).getValue("OEBPS/content.opf").toString(Charsets.UTF_8)
+        assertTrue(opf.contains("<dc:title>Test Book[RU Translated]</dc:title>"))
+        // dc:language must stay a BCP47 code, never the display name.
+        assertTrue(opf.contains("<dc:language>ru</dc:language>"))
+    }
+
+    @Test
+    fun `language tag accepts codes and display names`() {
+        assertEquals("EN", languageTag("en"))
+        assertEquals("ENG", languageTag("eng"))
+        assertEquals("EN", languageTag("English"))
+        assertEquals("KO", languageTag("Korean"))
+        assertNull(languageTag(null))
+        assertNull(languageTag("   "))
+        assertNull(languageTag("Klingon"))
     }
 
     @Test
@@ -170,11 +234,15 @@ class BookEpubExporterTest {
                 2 to content(2, "<p>World</p>"),
             ),
         )
+        val bodies = mapOf(1 to "<p>Hello &amp; bye</p>", 2 to "<p>World</p>")
         val progress = mutableListOf<Pair<Int, Int>>()
         val out = ByteArrayOutputStream()
 
         val result = runBlocking {
-            BookEpubExporter(provider).export(
+            BookEpubExporter(
+                provider,
+                chapterBodyLoader = { _, index -> bodies[index] },
+            ).export(
                 bookUrl = "test://book",
                 includeTranslation = false,
                 outputStream = out,
@@ -185,6 +253,7 @@ class BookEpubExporterTest {
         val success = result as EpubExportResult.Success
         assertEquals(2, success.chaptersWritten)
         assertEquals(listOf(1 to 2, 2 to 2), progress)
+        assertEquals(0, provider.chapterContentCalls)
 
         val entries = unzip(out.toByteArray())
         assertEquals("mimetype", entries.keys.first())
@@ -246,6 +315,7 @@ class BookEpubExporterTest {
             val out = ByteArrayOutputStream()
             val result = BookEpubExporter(
                 provider,
+                chapterBodyLoader = { _, _ -> "<p>Original</p>" },
                 translationsFor = { bookUrl, chapterUrl, html ->
                     asked += Triple(bookUrl, chapterUrl, html)
                     mapOf(0 to "Перевод")
@@ -264,7 +334,7 @@ class BookEpubExporterTest {
 
         val original = runBlocking {
             val out = ByteArrayOutputStream()
-            BookEpubExporter(provider)
+            BookEpubExporter(provider, chapterBodyLoader = { _, _ -> "<p>Original</p>" })
                 .export("test://book", includeTranslation = false, outputStream = out)
             unzip(out.toByteArray()).getValue("OEBPS/chapter-001.xhtml").toString(Charsets.UTF_8)
         }
@@ -286,6 +356,9 @@ class BookEpubExporterTest {
         val result = runBlocking {
             BookEpubExporter(
                 provider,
+                chapterBodyLoader = { _, index ->
+                    mapOf(1 to "<p>First</p>", 2 to "<p>Second</p>")[index]
+                },
                 translationsFor = { _, chapterUrl, html ->
                     if (chapterUrl.endsWith("-2") && html.contains("Second")) {
                         mapOf(0 to "Persisted")
@@ -318,6 +391,7 @@ class BookEpubExporterTest {
         val result = runBlocking {
             BookEpubExporter(
                 provider,
+                chapterBodyLoader = { _, _ -> raw },
                 translationsFor = { _, _, html ->
                     seenHtml = html
                     mapOf(0 to "Перевод")
@@ -394,11 +468,39 @@ class BookEpubExporterTest {
         val out = ByteArrayOutputStream()
 
         val result = runBlocking {
-            BookEpubExporter(provider).export("test://book", false, out)
+            BookEpubExporter(provider, chapterBodyLoader = { _, index ->
+                if (index == 1) "<p>Only one</p>" else null
+            }).export("test://book", false, out)
         }
 
         val success = result as EpubExportResult.Success
         assertEquals(1, success.chaptersWritten)
+        // The absent chapter must never be fetched from the source: export is
+        // limited to what is already on the device.
+        assertEquals(0, provider.chapterContentCalls)
+        val entries = unzip(out.toByteArray())
+        assertTrue(entries.containsKey("OEBPS/chapter-001.xhtml"))
+        assertFalse(entries.containsKey("OEBPS/chapter-002.xhtml"))
+    }
+
+    @Test
+    fun `chapter that is not downloaded is neither fetched nor written`() {
+        val chapters = listOf(chapter(1), chapter(2).copy(downloaded = false))
+        val provider = FakeProvider(
+            details(chapters),
+            mapOf(2 to content(2, "<p>Online only</p>")),
+        )
+        val bodies = mapOf(1 to "<p>Local</p>", 2 to "<p>Online only</p>")
+        val out = ByteArrayOutputStream()
+
+        val result = runBlocking {
+            BookEpubExporter(provider, chapterBodyLoader = { _, index -> bodies[index] })
+                .export("test://book", includeTranslation = false, outputStream = out)
+        }
+
+        val success = result as EpubExportResult.Success
+        assertEquals(1, success.chaptersWritten)
+        assertEquals(0, provider.chapterContentCalls)
         val entries = unzip(out.toByteArray())
         assertTrue(entries.containsKey("OEBPS/chapter-001.xhtml"))
         assertFalse(entries.containsKey("OEBPS/chapter-002.xhtml"))

@@ -86,15 +86,19 @@ class BookCbzExporterTest {
     @Test
     fun `downloaded chapters become one cbz each with metadata inside and out`() = runTest {
         val target = FakeTarget()
+        val progress = mutableListOf<Pair<Int, Int>>()
         val result = exporter(
             chapters = listOf(chapter(1, "Глава 1"), chapter(2, "Глава 2")),
             pages = mapOf(
                 1 to listOf(page("1-1.jpg"), page("1-2.jpg")),
                 2 to listOf(page("2-1.jpg")),
             ),
-        ).export("book", target)
+        ).export("book", target) { done, total -> progress += done to total }
 
         assertEquals(CbzExportResult.Success(2, 0), result)
+        // The notification needs a real total, so it comes from the exportable
+        // set, not from the raw chapter list.
+        assertEquals(listOf(1 to 2, 2 to 2), progress)
         assertEquals("Моё перерождение", target.folder)
         assertEquals(
             listOf("001 - Глава 1.cbz", "002 - Глава 2.cbz"),
