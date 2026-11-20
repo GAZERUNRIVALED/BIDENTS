@@ -7,7 +7,7 @@ import dev.mirutime.core.api.ContentType
 import dev.mirutime.core.api.getOrNull
 import dev.mirutime.core.host.FileSystem
 import dev.mirutime.core.log.MiruLog
-import dev.mirutime.core.text.textToParagraphHtml
+import dev.mirutime.core.text.localTextToParagraphHtml
 import dev.mirutime.core.reader.ChapterContent
 import dev.mirutime.core.reader.ChapterSource
 import dev.mirutime.app.core.jsonStringArray
@@ -157,7 +157,7 @@ class LocalBookProvider(
             bookUrl = bookUrl,
             chapterIndex = index,
             title = parsedChapter.title,
-            html = textToParagraphHtml(parsedChapter.body),
+            html = localTextToParagraphHtml(parsedChapter.body),
             chapterUrl = chapterUrl,
             source = ChapterSource.IMPORTED_DB_BODY,
             chapterId = chapterRow?.chapterId,
@@ -302,16 +302,16 @@ internal data class InlinePage(val position: Int, val url: String)
 // Splits the plain chapter body at image offsets and emits the same paragraph
 // HTML the text-only path uses, with one <p><img/></p> per image.
 internal fun interleaveChapterText(body: String, pages: List<InlinePage>): String {
-    if (pages.isEmpty()) return textToParagraphHtml(body)
+    if (pages.isEmpty()) return localTextToParagraphHtml(body)
     val out = StringBuilder()
     var cursor = 0
     for (page in pages.sortedBy { it.position }) {
         val position = page.position.coerceIn(cursor, body.length)
-        out.append(textToParagraphHtml(body.substring(cursor, position)))
+        out.append(localTextToParagraphHtml(body.substring(cursor, position)))
         out.append("<p><img src=\"").append(htmlAttribute(page.url)).append("\"/></p>")
         cursor = position
     }
-    out.append(textToParagraphHtml(body.substring(cursor)))
+    out.append(localTextToParagraphHtml(body.substring(cursor)))
     return out.toString()
 }
 

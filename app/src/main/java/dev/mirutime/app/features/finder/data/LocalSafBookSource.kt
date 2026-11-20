@@ -3,7 +3,7 @@ package dev.mirutime.app.features.finder.data
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
-import dev.mirutime.core.text.textToParagraphHtml
+import dev.mirutime.core.text.localTextToParagraphHtml
 import dev.mirutime.app.features.library.data.InlinePage
 import dev.mirutime.app.features.library.data.LocalBooksInstallId
 import dev.mirutime.app.features.library.data.LocalMangaInstallId
@@ -808,7 +808,7 @@ class LocalSafBookSource(
             InlinePage(position = image.position, url = file.toURI().toString())
         }
         return if (pages.isEmpty()) {
-            textToParagraphHtml(chapter.body)
+            localTextToParagraphHtml(chapter.body)
         } else {
             interleaveChapterText(chapter.body, pages)
         }

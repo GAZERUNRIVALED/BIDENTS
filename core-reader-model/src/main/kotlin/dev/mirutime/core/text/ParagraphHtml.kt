@@ -25,6 +25,18 @@ fun textToParagraphHtml(text: String): String {
         .joinToString("") { "<p>${escapeHtml(it)}</p>" }
 }
 
+// Local parsers (EPUB/FB2/TXT) put one paragraph per block and a <br> as a lone
+// newline inside it, so only a blank line starts a paragraph and a lone newline
+// stays a line break. Same rule the EPUB exporter uses.
+fun localTextToParagraphHtml(text: String): String {
+    if (text.isBlank()) return ""
+    val normalized = text.replace("\r\n", "\n").replace('\r', '\n')
+    return normalized.split(Regex("\n\\s*\n"))
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .joinToString("") { "<p>${escapeHtml(it).replace("\n", "<br/>")}</p>" }
+}
+
 private fun escapeHtml(text: String): String = text
     .replace("&", "&amp;")
     .replace("<", "&lt;")

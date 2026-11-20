@@ -35,6 +35,10 @@ internal fun parseTxt(bytes: ByteArray, title: String = "Untitled"): LocalBook {
 
 internal const val TXT_CHAPTER_MAX_CHARS = 64_000
 internal const val TXT_PARAGRAPH_MAX_CHARS = 256_000
+
+// Blank line between paragraphs: the reader treats a lone newline as a line
+// break, so this separator is what turns the next paragraph into its own <p>.
+private const val PARAGRAPH_SEPARATOR = "\n\n"
 private const val TXT_SAMPLE_BYTES = 64 * 1024
 
 private fun readSample(file: File): ByteArray {
@@ -213,8 +217,10 @@ private class TxtChapterSink(private val consumer: (LocalChapter) -> Unit) {
             splitOversized(paragraph).forEach { add(it) }
             return
         }
-        if (length > 0 && length + 1 + paragraph.length > TXT_CHAPTER_MAX_CHARS) flush()
-        if (length > 0) length++
+        if (length > 0 && length + PARAGRAPH_SEPARATOR.length + paragraph.length > TXT_CHAPTER_MAX_CHARS) {
+            flush()
+        }
+        if (length > 0) length += PARAGRAPH_SEPARATOR.length
         paragraphs += paragraph
         length += paragraph.length
     }
@@ -226,7 +232,7 @@ private class TxtChapterSink(private val consumer: (LocalChapter) -> Unit) {
             LocalChapter(
                 url = "txt_$chapterCount",
                 title = "Part $chapterCount",
-                body = paragraphs.joinToString("\n"),
+                body = paragraphs.joinToString(PARAGRAPH_SEPARATOR),
                 images = emptyList(),
             ),
         )

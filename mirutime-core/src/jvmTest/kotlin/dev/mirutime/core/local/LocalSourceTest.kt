@@ -284,6 +284,21 @@ class LocalSourceTest {
     }
 
     @Test
+    fun `fb2 line breaks inside a paragraph collapse to spaces`() {
+        val xml = """
+            <?xml version="1.0"?>
+            <FictionBook><body><section>
+              <p>First line of
+              the same paragraph.</p>
+              <p>Next paragraph.</p>
+            </section></body></FictionBook>
+        """.trimIndent()
+
+        val chapter = parseFb2(xml.toByteArray()).chapters.single()
+        assertEquals("First line of the same paragraph.\n\nNext paragraph.", chapter.body)
+    }
+
+    @Test
     fun `cbz pages in natural order`() {
         fs.write("$dir/comic.cbz", cbzFixture())
 

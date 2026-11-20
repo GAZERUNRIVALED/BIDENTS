@@ -35,7 +35,7 @@ class TxtReaderTest {
         val chapters = read(paragraphs.joinToString("\n"))
 
         assertEquals(2, chapters.size)
-        assertEquals(paragraphs, chapters.flatMap { it.body.split("\n") })
+        assertEquals(paragraphs, chapters.flatMap { it.body.split("\n\n") })
         assertTrue(chapters.all { it.body.length <= TXT_CHAPTER_MAX_CHARS })
         assertEquals(listOf("Part 1", "Part 2"), chapters.map { it.title })
         assertEquals(listOf("txt_1", "txt_2"), chapters.map { it.url })
@@ -48,9 +48,7 @@ class TxtReaderTest {
         }
         val chapters = read(blocks.joinToString("\n\n") + "\n")
 
-        val body = chapters.single().body
-        assertEquals(blocks, body.split("\n"))
-        assertFalse(body.contains("\n\n"))
+        assertEquals(blocks.joinToString("\n\n"), chapters.single().body)
     }
 
     @Test
@@ -59,7 +57,7 @@ class TxtReaderTest {
 
         val chapters = read(lines.joinToString("\n"))
 
-        assertEquals(lines, chapters.single().body.split("\n"))
+        assertEquals(lines, chapters.single().body.split("\n\n"))
     }
 
     @Test
@@ -68,22 +66,20 @@ class TxtReaderTest {
             "日本語のテキストです\nこれはテストです\n\n二行目の段落です\n続きの文です\n",
         )
 
-        val body = chapters.single().body
         assertEquals(
-            "日本語のテキストですこれはテストです\n二行目の段落です続きの文です",
-            body,
+            "日本語のテキストですこれはテストです\n\n二行目の段落です続きの文です",
+            chapters.single().body,
         )
-        assertFalse(body.contains("\n\n"))
     }
 
     @Test
     fun `hyphenated line break is joined without the hyphen`() {
         val chapters = read("This is a broken hy-\nphenated word.\n")
         // No blank line anywhere, so the two lines stay separate paragraphs.
-        assertEquals(listOf("This is a broken hy-", "phenated word."), chapters.single().body.split("\n"))
+        assertEquals(listOf("This is a broken hy-", "phenated word."), chapters.single().body.split("\n\n"))
 
         val merged = read("This is a broken hy-\nphenated word.\n\nNext block.\n")
-        assertEquals("This is a broken hyphenated word.", merged.single().body.split("\n").first())
+        assertEquals("This is a broken hyphenated word.", merged.single().body.split("\n\n").first())
     }
 
     @Test
@@ -94,7 +90,7 @@ class TxtReaderTest {
 
         assertEquals(2, chapters.size)
         assertTrue(chapters.all { it.body.length <= TXT_CHAPTER_MAX_CHARS })
-        assertEquals(long, chapters.joinToString(" ") { it.body })
+        assertEquals(long, chapters.joinToString(" ") { it.body.replace("\n\n", " ") })
     }
 
     @Test
@@ -104,7 +100,7 @@ class TxtReaderTest {
         val chapters = read(long)
 
         assertEquals(2, chapters.size)
-        assertEquals(long, chapters.joinToString("") { it.body })
+        assertEquals(long, chapters.joinToString("") { it.body.replace("\n\n", "") })
         chapters.forEach { chapter ->
             assertFalse(chapter.body.last().isHighSurrogate())
             assertFalse(chapter.body.first().isLowSurrogate())
@@ -163,7 +159,7 @@ class TxtReaderTest {
 
         assertEquals(
             listOf("Line one", "Line two", "Line three"),
-            chapters.single().body.split("\n"),
+            chapters.single().body.split("\n\n"),
         )
     }
 
@@ -180,7 +176,7 @@ class TxtReaderTest {
         val lines = (1..300).map { index -> "Line $index " + "q".repeat(990) }
         val chapters = read(lines.joinToString("\n") + "\n\n")
 
-        val paragraphs = chapters.flatMap { it.body.split("\n") }
+        val paragraphs = chapters.flatMap { it.body.split("\n\n") }
         assertTrue(paragraphs.size >= 2)
         assertTrue(paragraphs.all { it.length <= TXT_PARAGRAPH_MAX_CHARS })
         assertEquals(lines.joinToString(" "), paragraphs.joinToString(" "))
@@ -195,8 +191,8 @@ class TxtReaderTest {
                 val text = "a".repeat(offset) + "\uD83D\uDE00" + "b".repeat(10_000) + suffix
                 val chapters = read(text)
 
-                // Bodies carry one \n per paragraph boundary; the fixture has no
-                // source line breaks inside the long line.
+                // Bodies carry a blank line per paragraph boundary; the fixture
+                // has no source line breaks inside the long line.
                 assertEquals(
                     text.replace("\n", ""),
                     chapters.joinToString("") { it.body.replace("\n", "") },

@@ -2,6 +2,10 @@ package dev.mirutime.core.local
 
 import java.util.Base64
 
+// FB2 XML is often hard-wrapped at 80 columns; a line break inside a <p> is
+// source formatting, not a run of spaces or a <br>.
+private val WhitespaceRun = Regex("\\s+")
+
 // ── FB2 parser (port from NoveLA tooling/epub_parser Fb2Parser) ─────────────
 // Replacements vs the ethalon: javax DOM single pass instead of two streaming
 // XmlPullParser passes (ceiling: whole-tree DOM; the NoveLA streaming was a
@@ -29,7 +33,7 @@ internal fun parseFb2(raw: ByteArray): LocalBook {
         val parsed = sectionBodyText(section, binaries)
         if (parsed.body.isEmpty() && parsed.images.isEmpty()) null else {
             val sectionTitle = section.selectFirstChildTag("title")
-                ?.textContent?.replace(Regex("\\s+"), " ")?.trim().orEmpty()
+                ?.textContent?.replace(WhitespaceRun, " ")?.trim().orEmpty()
             LocalChapter(
                 url = "fb2_$index",
                 title = sectionTitle.ifEmpty { "Chapter ${index + 1}" },
@@ -74,9 +78,10 @@ private fun sectionBodyText(section: XmlElement, binaries: Map<String, XmlElemen
     for (child in section.children) {
         when (child.name) {
             "title", "section" -> {}
-            "empty-line", "br" -> out.append('\n')
+            "empty-line" -> out.append("\n\n")
+            "br" -> out.append('\n')
             "p", "subtitle", "cite", "epigraph", "table" -> {
-                val text = child.textContent.trim()
+                val text = child.textContent.replace(WhitespaceRun, " ").trim()
                 if (text.isNotEmpty()) out.append(text)
                 child.selectTag("image").forEach { appendFb2Image(it, out, binaries) }
                 out.append("\n\n")

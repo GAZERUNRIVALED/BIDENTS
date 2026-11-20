@@ -31,6 +31,14 @@ class InlineChapterHtmlTest {
     }
 
     @Test
+    fun `a lone newline is a line break, a blank line is a paragraph`() {
+        assertEquals(
+            "<p>Verse one<br/>verse two</p><p>Next paragraph</p>",
+            interleaveChapterText("Verse one\nverse two\n\nNext paragraph", emptyList()),
+        )
+    }
+
+    @Test
     fun `image urls are attribute-escaped and extension follows magic bytes`() {        val html = interleaveChapterText(
             "",
             listOf(InlinePage(0, "file:///a%20b&c.png")),

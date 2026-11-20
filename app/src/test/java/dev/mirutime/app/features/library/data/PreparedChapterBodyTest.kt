@@ -112,7 +112,7 @@ class PreparedChapterBodyTest {
     fun `text-only body keeps the plain paragraph mapping and writes no images`() {
         val fs = MapFileSystem()
         val prepared = prepareChapterBody(
-            chapter = LocalChapter("epub#ch1", "One", "One\n\nTwo"),
+            chapter = LocalChapter("epub#ch1", "One", "One\nTwo\n\nThree"),
             bodyKey = "8",
             chapterIndex = 2,
             bookDir = "local_books/local-books/sha",
@@ -120,7 +120,7 @@ class PreparedChapterBodyTest {
             fileSystem = fs,
         )
 
-        assertEquals("<p>One</p><p>Two</p>", fs.read(prepared.path)!!.decodeToString())
+        assertEquals("<p>One<br/>Two</p><p>Three</p>", fs.read(prepared.path)!!.decodeToString())
         assertFalse(fs.files.keys.any { "/images/" in it })
     }
 }
