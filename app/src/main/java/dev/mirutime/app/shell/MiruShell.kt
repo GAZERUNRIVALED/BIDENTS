@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Icon
@@ -84,6 +85,7 @@ import dev.mirutime.uikit.MiruTabItem
 import dev.mirutime.uikit.ThemeMode
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.uikit.MiruActionRow
+import dev.mirutime.uikit.MiruIconButton
 import dev.mirutime.uikit.MiruRowDivider
 import dev.mirutime.uikit.SheetSection
 import dev.mirutime.app.design.components.ThemePickerRails
@@ -170,6 +172,9 @@ internal val LocalImeBottom = compositionLocalOf { 0.dp }
 internal val TabBarFadeStrip = 16.dp
 internal val TabBarPlateTopInset = 4.dp
 internal val TabBarDecoration = TabBarFadeStrip + TabBarPlateTopInset
+
+// The one source-catalogue route; its screen hoists actions into the header.
+private const val CatalogRoute = "finder/source/{sourceId}?q={q}"
 
 // App shell: pinned header on top, four-tab bottom navigation, standard
 // system-plus-header back behavior. Extra themes live behind the header
@@ -398,6 +403,8 @@ fun MiruShell(
     // Catalogue screens with an internal stack (OPDS feeds) register here so the
     // header back pops the feed before it leaves the route.
     var catalogBackAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    // A plugin catalogue registers its reload here; the header renders it.
+    var catalogRefreshAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     // Live page URL for the header subtitle; the route argument is only the
     // starting point, in-page links and history move it.
     var webViewCurrentUrl by remember { mutableStateOf("") }
@@ -478,11 +485,25 @@ fun MiruShell(
                     )
             }
             val onGlobalSearch = route == "finder/search"
+            val onCatalog = route == CatalogRoute
             val onManageExt = route == "finder/extensions"
             val settingsHeader = settingsHeaderRes(route)
             val onUpdates = route == "updates"
             val onHistory = route == "history"
             val onMigration = route == MigrationRoutes.Screen
+            // A plugin catalogue registers its reload in the screen; the header
+            // shows it only while that catalogue is the current route, so a
+            // lambda left over from a screen in transition cannot fire.
+            val catalogRefresh: (@Composable () -> Unit)? =
+                catalogRefreshAction?.takeIf { onCatalog }?.let { reload ->
+                    {
+                        MiruIconButton(
+                            icon = Icons.Filled.Refresh,
+                            contentDescription = stringResource(R.string.finder_local_refresh_cd),
+                            onClick = reload,
+                        )
+                    }
+                }
             // Chrome layer: an eased veil under the floating plate so page
             // content sliding past the top fades out instead of reading raw
             // in the status-bar strip (photo and classic themes alike).
@@ -537,6 +558,7 @@ fun MiruShell(
                     onTheme = { themeSheetOpen = true },
                     onExtras = { extrasSheetOpen = true },
                     opaque = onMigration,
+                    action = catalogRefresh,
                 )
             }
         },
@@ -759,7 +781,7 @@ fun MiruShell(
                 )
             }
             composable(
-                route = "finder/source/{sourceId}?q={q}",
+                route = CatalogRoute,
                 arguments = listOf(
                     navArgument("sourceId") { type = NavType.StringType },
                     navArgument("q") {
@@ -794,6 +816,7 @@ fun MiruShell(
                     },
                     onLibraryChanged = onLibraryChanged,
                     onBackAction = { catalogBackAction = it },
+                    onRefreshAction = { catalogRefreshAction = it },
                     onSolveCf = { challenge ->
                         val graph = (context.applicationContext as dev.mirutime.app.MiruApp)
                             .pluginGraph

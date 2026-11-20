@@ -3,6 +3,7 @@ package dev.mirutime.app.features.finder.data
 import dev.mirutime.app.features.finder.domain.CatalogBook
 import dev.mirutime.app.features.finder.domain.CatalogFilters
 import dev.mirutime.app.features.finder.domain.CatalogPage
+import dev.mirutime.app.features.finder.domain.OpdsSources
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -11,7 +12,9 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -216,5 +219,89 @@ class CatalogSessionTest {
         assertFalse(session.state.value.active)
         session.activate()
         assertTrue(session.state.value.active)
+    }
+
+    @Test
+    fun `reloading a source drops its other lists and keeps the one on screen`() = runTest {
+        val registry = CatalogSessionRegistry(
+            page = { _, _, pageNumber ->
+                CatalogPage(listOf(book("book-$pageNumber")), hasMore = true)
+            },
+            newScope = { CoroutineScope(coroutineContext + Job()) },
+        )
+        val onScreen = registry.get("source-1", CatalogFilters())
+        val searched = registry.get("source-1", CatalogFilters(query = "elf"))
+        val otherSource = registry.get("source-2", CatalogFilters(query = "elf"))
+        listOf(onScreen, searched, otherSource).forEach { it.ensureLoaded() }
+        advanceUntilIdle()
+
+        registry.invalidateSource("source-1", keep = CatalogFilters())
+
+        assertSame(onScreen, registry.get("source-1", CatalogFilters()))
+        assertNotSame(searched, registry.get("source-1", CatalogFilters(query = "elf")))
+        assertSame(otherSource, registry.get("source-2", CatalogFilters(query = "elf")))
+    }
+
+    @Test
+    fun `reloading a source cancels the loads of the lists it drops`() = runTest {
+        val release = CompletableDeferred<CatalogPage>()
+        val registry = CatalogSessionRegistry(
+            page = { _, filters, _ ->
+                if (filters.query.isEmpty()) page(listOf("on-screen"), hasMore = false) else release.await()
+            },
+            newScope = { CoroutineScope(coroutineContext + Job()) },
+        )
+        val onScreen = registry.get("source-1", CatalogFilters())
+        val searched = registry.get("source-1", CatalogFilters(query = "elf"))
+        onScreen.ensureLoaded()
+        searched.ensureLoaded()
+        runCurrent()
+        assertTrue(searched.state.value.loading)
+
+        registry.invalidateSource("source-1", keep = CatalogFilters())
+        release.complete(page(listOf("late"), hasMore = false))
+        advanceUntilIdle()
+
+        assertEquals(emptyList<String>(), searched.state.value.books.map { it.bookUrl })
+        assertEquals(listOf("on-screen"), onScreen.state.value.books.map { it.bookUrl })
+    }
+
+    @Test
+    fun `a reload asks the source again for the page with the same search and filters`() = runTest {
+        val asked = mutableListOf<Pair<CatalogFilters, Int>>()
+        val fanfic = CatalogFilters(query = "elf", pluginValues = mapOf("mode" to listOf("fanfic")))
+        val registry = CatalogSessionRegistry(
+            page = { _, filters, pageNumber ->
+                asked += filters to pageNumber
+                CatalogPage(listOf(book("call-${asked.size}")), hasMore = true)
+            },
+            newScope = { CoroutineScope(coroutineContext + Job()) },
+        )
+        val session = registry.get("source-1", fanfic)
+        session.ensureLoaded()
+        advanceUntilIdle()
+
+        registry.invalidateSource("source-1", keep = fanfic)
+        session.refresh(force = true)
+        advanceUntilIdle()
+
+        assertEquals(listOf(fanfic to 1, fanfic to 1), asked)
+        assertEquals(listOf("call-2"), session.state.value.books.map { it.bookUrl })
+    }
+
+    @Test
+    fun `reloading an OPDS source keeps its session whatever query is on screen`() = runTest {
+        val registry = CatalogSessionRegistry(
+            page = { _, _, _ -> CatalogPage(emptyList(), hasMore = false) },
+            newScope = { CoroutineScope(coroutineContext + Job()) },
+        )
+        val feed = OpdsSources.Prefix + "demo"
+        // The feed ignores the query, so both keys name the same session.
+        val onScreen = registry.get(feed, CatalogFilters(query = "elf"))
+
+        registry.invalidateSource(feed, keep = CatalogFilters(query = "elf"))
+
+        assertSame(onScreen, registry.get(feed, CatalogFilters(query = "elf")))
+        assertSame(onScreen, registry.get(feed, CatalogFilters()))
     }
 }

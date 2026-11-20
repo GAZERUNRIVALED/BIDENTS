@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.Public
@@ -47,6 +46,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -88,6 +88,7 @@ import dev.mirutime.uikit.MiruSearchBar
 import dev.mirutime.app.features.book.data.MembershipResult
 import dev.mirutime.app.features.finder.data.CatalogSessionRegistry
 import dev.mirutime.app.features.finder.data.FinderDataProvider
+import dev.mirutime.app.features.finder.data.FinderSearchCache
 import dev.mirutime.app.features.finder.data.OpdsCatalogSession
 import dev.mirutime.app.features.finder.domain.CatalogBook
 import dev.mirutime.app.features.finder.domain.CatalogFilters
@@ -143,6 +144,8 @@ internal fun SourceCatalogScreen(
     onLibraryChanged: () -> Unit = {},
     // Exposes the screen's internal back (OPDS feed stack) to the shell header.
     onBackAction: ((() -> Unit)?) -> Unit = {},
+    // Exposes the catalogue reload to the shell header.
+    onRefreshAction: ((() -> Unit)?) -> Unit = {},
     // Query carried over from the global search ("open this catalogue").
     initialQuery: String = "",
     // Solve a CF challenge for the request that failed, then retry. Supplied
@@ -304,6 +307,78 @@ internal fun SourceCatalogScreen(
         }
         schemaLoading = false
     }
+
+    // Browser-style reload of a plugin source. It forgets what search and
+    // filters left in memory (the other lists of this source, the filter
+    // schema, the global-search snapshot) and asks the site again for the page
+    // on screen, with its search and filters kept. Cookies, logins and plugin
+    // preferences live in other stores and are not touched.
+    val reloadSource: () -> Unit = {
+        // One reload at a time: a second tap would queue another request on the
+        // plugin, which serves a single call at a time. Read the live state, so a
+        // second tap in the same frame cannot slip past the composed value.
+        if (!session.state.value.loading) {
+            MiruLog.event(
+                "finder",
+                "catalog-refresh",
+                "source" to MiruLog.idHash(sourceId),
+                "kind" to "plugin",
+                "filters" to filters.pluginActiveFilterCount(schema),
+            )
+            FinderSearchCache.clear()
+            sessions.invalidateSource(sourceId, keep = filters)
+            provider.refreshSource(sourceId)
+            schemaTick++
+            reloadTick++
+            session.refresh(force = true)
+            // Page 1 replaces the list: the old offset would point into books
+            // that no longer exist and clamp to the bottom of the new page.
+            scope.launch { gridState.scrollToItem(0) }
+        }
+    }
+
+    // OPDS and local catalogues reload the feed/folder they already show; no
+    // caches and no filter schema sit behind them. Guarded the same way so a
+    // tap during a load cannot stack a second call.
+    val reloadOpds: () -> Unit = {
+        if (!session.state.value.loading) {
+            MiruLog.event(
+                "finder",
+                "catalog-refresh",
+                "source" to MiruLog.idHash(sourceId),
+                "kind" to "opds",
+            )
+            opdsSession?.refresh(force = true)
+        }
+    }
+    val reloadLocal: () -> Unit = {
+        if (!session.state.value.loading) {
+            MiruLog.event(
+                "finder",
+                "catalog-refresh",
+                "source" to MiruLog.idHash(sourceId),
+                "kind" to "local",
+            )
+            reloadTick++
+            session.refresh(force = true)
+        }
+    }
+
+    // The screen owns no Scaffold: the shell header renders this reload for
+    // every catalogue type, like it renders the OPDS back step. The updated
+    // state keeps the hoisted lambda on the live one; the dispose clears it so
+    // a stale screen cannot fire from another route.
+    val headerReload = rememberUpdatedState(
+        when {
+            isOpds -> reloadOpds
+            isLocal -> reloadLocal
+            else -> reloadSource
+        },
+    )
+    LaunchedEffect(isLocal, isOpds, sourceId) {
+        onRefreshAction { headerReload.value() }
+    }
+    DisposableEffect(Unit) { onDispose { onRefreshAction(null) } }
 
     // Lazy backfill for entries the listing returned without any cover, the
     // NoveLA pattern: one source call per item, one at a time and staggered,
@@ -560,15 +635,7 @@ internal fun SourceCatalogScreen(
                             modifier = Modifier.weight(1f),
                         )
                         // OPDS keeps no app filters: the feed's own facets and
-                        // sort links are the only controls it offers. It still
-                        // needs an explicit reload for a live feed.
-                        if (isOpds) {
-                            MiruRoundIconButton(
-                                icon = Icons.Filled.Refresh,
-                                contentDescription = stringResource(R.string.finder_local_refresh_cd),
-                                onClick = { opdsSession?.refresh(force = true) },
-                            )
-                        }
+                        // sort links are the only controls it offers.
                         if (!isOpds) {
                             MiruRoundIconButton(
                                 icon = Icons.Filled.Tune,
@@ -580,19 +647,16 @@ internal fun SourceCatalogScreen(
                                     filters.pluginActiveFilterCount(schema)
                                 },
                             )
-                            // Local: refresh the live scan or open folder management.
+                            // Local: open folder management; a folder change and
+                            // the header reload both rescan the same catalogue.
                             if (isLocal) {
-                                MiruRoundIconButton(
-                                    icon = Icons.Filled.Refresh,
-                                    contentDescription = stringResource(R.string.finder_local_refresh_cd),
-                                    onClick = { reloadTick++; session.refresh(force = true) },
-                                )
                                 MiruRoundIconButton(
                                     icon = Icons.Filled.Folder,
                                     contentDescription = stringResource(R.string.finder_local_manage),
                                     onClick = { foldersOpen = true },
                                 )
                             } else if (siteUrl.isNotBlank()) {
+                                // The plugin reload is in the shell header (see reloadSource).
                                 MiruRoundIconButton(
                                     icon = Icons.Outlined.Public,
                                     contentDescription = stringResource(R.string.webview_open_site),

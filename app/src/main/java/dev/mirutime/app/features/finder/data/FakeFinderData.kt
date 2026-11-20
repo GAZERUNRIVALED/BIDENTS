@@ -79,6 +79,12 @@ interface FinderDataProvider {
     // must show with Retry. Never built from library genres.
     suspend fun filterSchema(sourceId: String): Outcome<List<PluginFilter>>
 
+    // Browser-style reload of one source: forget what the provider kept from
+    // earlier answers (the filter schema), so the next read asks the plugin
+    // again. Never touches cookies, logins or plugin preferences. The default
+    // keeps every fake/preview provider working unchanged.
+    fun refreshSource(sourceId: String) {}
+
     // Global search: one source's answer (first matches), may throw.
     suspend fun searchSource(sourceId: String, query: String): List<CatalogBook>
 

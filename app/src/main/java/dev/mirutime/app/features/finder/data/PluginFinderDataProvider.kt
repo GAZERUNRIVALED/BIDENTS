@@ -458,6 +458,13 @@ class PluginFinderDataProvider(
         return loadFilterSchema(sourceId, graph.source(sourceId), filterSchemas)
     }
 
+    // Only the filter schema is kept here; the plugin itself is not restarted,
+    // so whatever it keeps for a login stays (cookies and preferences live in
+    // their own stores either way).
+    override fun refreshSource(sourceId: String) {
+        filterSchemas.invalidate(sourceId)
+    }
+
     override suspend fun searchSource(sourceId: String, query: String): List<CatalogBook> {
         if (LocalSources.isLocal(sourceId)) {
             val kind = LocalSources.kindOf(sourceId)

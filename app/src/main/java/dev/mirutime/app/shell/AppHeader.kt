@@ -39,6 +39,9 @@ fun AppHeader(
     onTheme: () -> Unit,
     onExtras: () -> Unit,
     opaque: Boolean = false,
+    // One screen-owned action (a catalogue refresh); it sits before the app-wide
+    // theme/more buttons so those never move.
+    action: (@Composable () -> Unit)? = null,
 ) {
     val ink = MaterialTheme.colorScheme.onSurface
     val navigation: @Composable () -> Unit = {
@@ -64,6 +67,7 @@ fun AppHeader(
     }
     val actions: @Composable () -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            action?.invoke()
             IconButton(onClick = onTheme) {
                 Icon(
                     imageVector = Icons.Filled.Palette,

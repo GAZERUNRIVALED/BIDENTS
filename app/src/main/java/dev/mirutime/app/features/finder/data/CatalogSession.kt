@@ -238,14 +238,17 @@ internal class CatalogSessionRegistry(
 ) {
     private val sessions = LinkedHashMap<CatalogCacheKey, CatalogSessionLike>()
 
-    fun get(sourceId: String, filters: CatalogFilters): CatalogSessionLike {
-        // The OPDS feed ignores the query: search pushes a feed in the session,
-        // so a new query must not throw the session (and its stack) away.
-        val key = if (OpdsSources.catalogIdOf(sourceId) != null) {
+    // The OPDS feed ignores the query (search pushes a feed inside the session),
+    // so two queries must name one session; a plugin list is per query.
+    private fun cacheKey(sourceId: String, filters: CatalogFilters): CatalogCacheKey =
+        if (OpdsSources.catalogIdOf(sourceId) != null) {
             CatalogCacheKey(sourceId, filters.copy(query = ""))
         } else {
             CatalogCacheKey(sourceId, filters)
         }
+
+    fun get(sourceId: String, filters: CatalogFilters): CatalogSessionLike {
+        val key = cacheKey(sourceId, filters)
         sessions.remove(key)?.let {
             sessions[key] = it
             return it
@@ -264,6 +267,25 @@ internal class CatalogSessionRegistry(
         while (iterator.hasNext()) {
             val entry = iterator.next()
             if (!entry.value.state.value.active) {
+                entry.value.close()
+                iterator.remove()
+            }
+        }
+    }
+
+    /**
+     * Browser-style reload of one source: forgets every list of [sourceId] except
+     * the one for [keep], which is the list on screen. The caller reloads that one
+     * in place (`refresh(force = true)`), so its search and filters stay applied;
+     * the others are loaded again the next time they are opened. Other sources
+     * are not touched, and nothing here reaches cookies or plugin preferences.
+     */
+    fun invalidateSource(sourceId: String, keep: CatalogFilters) {
+        val keepKey = cacheKey(sourceId, keep)
+        val iterator = sessions.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            if (entry.key.sourceId == sourceId && entry.key != keepKey) {
                 entry.value.close()
                 iterator.remove()
             }
@@ -297,6 +319,9 @@ internal class CatalogSessionRegistry(
             )
         }
         if (!LocalSources.isLocal(sourceId)) {
+            // `refresh` is unused: catalog/catalogFiltered already force the
+            // network, and no response cache is wired in. Only `search` would
+            // need it if one were.
             return CatalogSession({ pageNumber, _ -> page(sourceId, filters, pageNumber) }, scope)
         }
         var snapshot: LocalCatalogSnapshot? = null
