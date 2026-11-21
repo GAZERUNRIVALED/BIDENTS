@@ -1194,6 +1194,9 @@
     <string name="st_network_requests_desc">Como o app se apresenta aos sites</string>
     <string name="st_network_cloudflare">Desvio do Cloudflare</string>
     <string name="st_network_cloudflare_desc">Resolver desafios do Cloudflare automaticamente</string>
+    <string name="st_network_cover_backfill">Preenchimento de capas do catálogo</string>
+    <string name="st_network_cover_backfill_desc">Carregar a capa em falta com um pedido extra por livro. Em fontes que não listam capas custa uma chamada por cartão.</string>
+    <string name="finder_cover_backfill_toast">A carregar capas: esta fonte não lista nenhuma. Desativa em Definições → Rede.</string>
     <string name="st_network_ua">User-Agent de raspagem</string>
     <string name="st_network_ua_empty">Deixe vazio para o padrão</string>
     <string name="st_network_ua_tip">Vazio = a identidade de navegador interna.</string>

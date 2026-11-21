@@ -91,7 +91,8 @@ interface FinderDataProvider {
     /**
      * Re-resolves one catalogue item's cover from its source. Catalogue rows
      * are not persisted, so this returns a fresh URL for the screen to keep;
-     * null means the source could not produce one.
+     * "" means the book has no cover at all, null means the source could not
+     * be asked (cooldown or error), so the caller may retry later.
      */
     suspend fun refreshCatalogCover(sourceId: String, bookUrl: String): String? = null
 

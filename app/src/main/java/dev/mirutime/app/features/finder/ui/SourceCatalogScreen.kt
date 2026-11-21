@@ -90,6 +90,7 @@ import dev.mirutime.app.features.finder.data.CatalogSessionRegistry
 import dev.mirutime.app.features.finder.data.FinderDataProvider
 import dev.mirutime.app.features.finder.data.FinderSearchCache
 import dev.mirutime.app.features.finder.data.OpdsCatalogSession
+import dev.mirutime.app.features.finder.data.CatalogCoverMemory
 import dev.mirutime.app.features.finder.domain.CatalogBook
 import dev.mirutime.app.features.finder.domain.CatalogFilters
 import dev.mirutime.app.features.finder.domain.LocalSources
@@ -387,30 +388,74 @@ internal fun SourceCatalogScreen(
     // and membership flips must not cancel them.
     val coverDone = remember(sourceId, filters, reloadTick) { mutableSetOf<String>() }
     val coverInflight = remember(sourceId, filters, reloadTick) { mutableSetOf<String>() }
+    // One toast per page, not one per card.
+    val coverToastPages = remember(sourceId, filters, reloadTick) { mutableSetOf<Int>() }
     LaunchedEffect(sourceId, filters, reloadTick) {
-        if (isLocal) return@LaunchedEffect
+        // OPDS and local catalogues have no plugin call behind a card, so the
+        // backfill would only produce nulls and a misleading toast.
+        if (isLocal || isOpds) return@LaunchedEffect
         // One request at a time: the plugin serializes all calls on a single
         // Lua mutex, so two cover workers would starve paging and book opens.
         val gate = Semaphore(1)
         snapshotFlow {
-            pageState.books to (pageState.active && !pageState.loading)
-        }.collect { (list, allowed) ->
+            pageState.books to (pageState.active && !pageState.loading) to
+                AppSettings.catalogCoverBackfill
+        }.collect { (page, backfillEnabled) ->
+            val (list, allowed) = page
             val urls = list.mapTo(HashSet()) { it.bookUrl }
             // A query change must forget both the repairs and the "already
             // asked" marks of URLs that left the result set.
             coverDone.retainAll(urls)
             coverFixes.keys.retainAll(urls)
             if (!allowed) return@collect
+            // A cover resolved on an earlier visit comes back from the process
+            // memory: the session keeps the coverless rows across navigation,
+            // so the screen must not ask again for what it already knows.
+            for (book in list) {
+                if (book.coverUrl.isNullOrBlank() && book.bookUrl !in coverFixes) {
+                    CatalogCoverMemory.cover(sourceId, book.bookUrl)
+                        ?.let { coverFixes[book.bookUrl] = it }
+                }
+            }
+            // Settings → Network: a source that lists no covers costs one
+            // details call per card, so the switch stops the backfill entirely.
+            if (!backfillEnabled) return@collect
+            val pending = catalogBackfillPending(list) { url ->
+                url in coverFixes ||
+                    url in coverDone ||
+                    CatalogCoverMemory.isMiss(sourceId, url)
+            }
+            if (pending == 0) return@collect
+            if (coverToastPages.add(pageState.pagesLoaded)) {
+                Toast.makeText(
+                    context,
+                    resources.getString(R.string.finder_cover_backfill_toast),
+                    // LENGTH_LONG: the message names the switch that turns the
+                    // backfill off, and LENGTH_SHORT is gone before it is read.
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
             list.forEach { book ->
                 val url = book.bookUrl
                 if (!book.coverUrl.isNullOrBlank()) return@forEach
+                if (url in coverFixes || CatalogCoverMemory.isMiss(sourceId, url)) return@forEach
                 if (url in coverDone || !coverInflight.add(url)) return@forEach
                 launch {
                     try {
                         gate.withPermit {
                             delay(Random.nextLong(300L, 501L))
-                            provider.refreshCatalogCover(sourceId, url)?.let { fresh ->
-                                coverFixes[url] = fresh
+                            when (val fresh = provider.refreshCatalogCover(sourceId, url)) {
+                                // Could not ask now (cooldown, source error):
+                                // leave it unstored so a later visit retries.
+                                null -> Unit
+                                // The book exists and has no cover. Caching the
+                                // miss is what stops a coverless source from
+                                // re-asking its whole page on every visit.
+                                "" -> CatalogCoverMemory.putMiss(sourceId, url)
+                                else -> {
+                                    CatalogCoverMemory.putCover(sourceId, url, fresh)
+                                    coverFixes[url] = fresh
+                                }
                             }
                         }
                     } catch (e: CancellationException) {
@@ -779,7 +824,12 @@ internal fun SourceCatalogScreen(
                     membership = book.badge?.toMiruBadge(),
                     onRetry = {
                         provider.refreshCatalogCover(sourceId, book.bookUrl)?.also { fresh ->
-                            coverFixes[book.bookUrl] = fresh
+                            if (fresh.isEmpty()) {
+                                CatalogCoverMemory.putMiss(sourceId, book.bookUrl)
+                            } else {
+                                CatalogCoverMemory.putCover(sourceId, book.bookUrl, fresh)
+                                coverFixes[book.bookUrl] = fresh
+                            }
                         }
                     },
                     reloadKey = reloadTick,
@@ -1071,3 +1121,10 @@ internal fun pluginSchemaErrorMessage(
 internal fun bookIndexFromGridIndex(gridIndex: Int): Int = (gridIndex - 1).coerceAtLeast(0)
 
 internal fun gridIndexForBookIndex(bookIndex: Int): Int = bookIndex + 1
+
+// Cards the backfill still has to fetch: the listing gave no cover and nothing
+// has resolved the URL yet (this screen's map or the process memory).
+internal fun catalogBackfillPending(
+    books: List<CatalogBook>,
+    isResolved: (String) -> Boolean,
+): Int = books.count { it.coverUrl.isNullOrBlank() && !isResolved(it.bookUrl) }

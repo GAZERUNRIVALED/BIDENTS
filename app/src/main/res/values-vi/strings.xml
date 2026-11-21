@@ -1172,6 +1172,9 @@
     <string name="st_network_requests_desc">Cách ứng dụng tự giới thiệu với trang web</string>
     <string name="st_network_cloudflare">Vượt Cloudflare</string>
     <string name="st_network_cloudflare_desc">Tự động vượt thử thách Cloudflare</string>
+    <string name="st_network_cover_backfill">Bổ sung bìa danh mục</string>
+    <string name="st_network_cover_backfill_desc">Tải bìa còn thiếu bằng một yêu cầu thêm cho mỗi sách. Nguồn không liệt kê bìa sẽ tốn một lần gọi cho mỗi thẻ.</string>
+    <string name="finder_cover_backfill_toast">Đang tải bìa: nguồn này không liệt kê bìa. Tắt trong Cài đặt → Mạng.</string>
     <string name="st_network_ua">User-Agent của trình thu thập</string>
     <string name="st_network_ua_empty">Để trống dùng mặc định</string>
     <string name="st_network_ua_tip">Trống = danh tính trình duyệt có sẵn.</string>

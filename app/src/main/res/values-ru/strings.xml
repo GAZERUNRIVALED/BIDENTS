@@ -1207,6 +1207,9 @@
     <string name="st_network_requests_desc">Как приложение представляется сайтам</string>
     <string name="st_network_cloudflare">Обход Cloudflare</string>
     <string name="st_network_cloudflare_desc">Автоматически решать вызовы Cloudflare</string>
+    <string name="st_network_cover_backfill">Догрузка обложек в каталоге</string>
+    <string name="st_network_cover_backfill_desc">Дотягивать отсутствующую обложку одним запросом на книгу. Для источников без картинок в списке это запрос на каждую карточку.</string>
+    <string name="finder_cover_backfill_toast">Загружаю обложки: в списке источника их нет. Отключить — Настройки → Сеть.</string>
     <string name="st_network_ua">User-Agent скрейпера</string>
     <string name="st_network_ua_empty">Оставьте пустым для значения по умолчанию</string>
     <string name="st_network_ua_tip">Пусто = встроенный идентификатор браузера.</string>

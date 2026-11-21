@@ -1226,6 +1226,9 @@
     <string name="st_network_requests_desc">كيف يقدّم التطبيق نفسه للمواقع</string>
     <string name="st_network_cloudflare">تجاوز Cloudflare</string>
     <string name="st_network_cloudflare_desc">حل تحديات Cloudflare تلقائيًا</string>
+    <string name="st_network_cover_backfill">تعبئة أغلفة الكتالوج</string>
+    <string name="st_network_cover_backfill_desc">تحميل الغلاف المفقود بطلب إضافي واحد لكل كتاب. المصادر التي لا تسرد أغلفة تكلّف طلبًا واحدًا لكل بطاقة.</string>
+    <string name="finder_cover_backfill_toast">جارٍ تحميل الأغلفة: هذا المصدر لا يسرد أيًا منها. أوقفه من الإعدادات ← الشبكة.</string>
     <string name="st_network_ua">وكيل المستخدم للكشط</string>
     <string name="st_network_ua_empty">اتركه فارغًا للافتراضي</string>
     <string name="st_network_ua_tip">فارغ = هوية المتصفح المدمجة.</string>

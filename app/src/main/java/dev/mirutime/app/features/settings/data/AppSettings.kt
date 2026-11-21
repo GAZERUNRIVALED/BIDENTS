@@ -133,6 +133,11 @@ object AppSettings {
     // SettingsStore like every other durable setting; no in-memory fixture.
     val searchHistory = mutableStateMapOf<String, List<String>>()
 
+    // CATALOG_COVER_BACKFILL: fill a catalogue card that came without a cover
+    // through one extra details call. Sources that list no covers at all cost
+    // a request per card, so the user can switch the backfill off.
+    var catalogCoverBackfill by mutableStateOf(true)
+
     fun searchHistoryFor(key: String): List<String> = searchHistory[key].orEmpty()
 
     fun setSearchHistory(key: String, history: List<String>) {
@@ -407,6 +412,7 @@ object AppSettings {
         pinnedSources = pinnedSources.toList(),
         filterPresets = filterPresets.toMap(),
         searchHistory = searchHistory.toMap(),
+        catalogCoverBackfill = catalogCoverBackfill,
         appUpdateCheck = appUpdateCheck,
         libraryAutoUpdate = libraryAutoUpdate,
         libraryLastRunAt = libraryLastRunAt,
@@ -497,6 +503,7 @@ object AppSettings {
         filterPresets.putAll(settings.filterPresets)
         searchHistory.clear()
         searchHistory.putAll(settings.searchHistory)
+        catalogCoverBackfill = settings.catalogCoverBackfill
         appUpdateCheck = settings.appUpdateCheck
         libraryAutoUpdate = settings.libraryAutoUpdate
         libraryLastRunAt = settings.libraryLastRunAt

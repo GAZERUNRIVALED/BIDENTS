@@ -1183,6 +1183,9 @@
     <string name="st_network_requests_desc">Wie sich die App bei Websites vorstellt</string>
     <string name="st_network_cloudflare">Cloudflare-Umgehung</string>
     <string name="st_network_cloudflare_desc">Cloudflare-Prüfungen automatisch lösen</string>
+    <string name="st_network_cover_backfill">Cover-Nachladen im Katalog</string>
+    <string name="st_network_cover_backfill_desc">Fehlendes Cover mit einer zusätzlichen Anfrage pro Buch laden. Quellen ohne Cover kosten einen Aufruf pro Karte.</string>
+    <string name="finder_cover_backfill_toast">Cover werden geladen: Diese Quelle listet keine. Deaktivieren unter Einstellungen → Netzwerk.</string>
     <string name="st_network_ua">Scraper-User-Agent</string>
     <string name="st_network_ua_empty">Leer lassen für Standard</string>
     <string name="st_network_ua_tip">Leer = die eingebaute Browser-Identität.</string>

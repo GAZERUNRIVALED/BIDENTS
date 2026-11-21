@@ -192,6 +192,7 @@ class SettingsStoreTest {
             nextRuleId = 200L,
             userAgent = "MiruTest/1.0",
             cloudflareBypass = false,
+            catalogCoverBackfill = false,
             massAddDelayMs = 1500,
             downloadDelayMs = 2500,
             autoBackup = true,

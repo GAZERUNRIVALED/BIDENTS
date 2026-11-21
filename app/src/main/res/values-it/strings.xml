@@ -1194,6 +1194,9 @@
     <string name="st_network_requests_desc">Come l\'app si presenta ai siti</string>
     <string name="st_network_cloudflare">Bypass Cloudflare</string>
     <string name="st_network_cloudflare_desc">Risolvi automaticamente le verifiche Cloudflare</string>
+    <string name="st_network_cover_backfill">Recupero copertine del catalogo</string>
+    <string name="st_network_cover_backfill_desc">Carica la copertina mancante con una richiesta extra per libro. Le fonti senza copertine costano una chiamata per scheda.</string>
+    <string name="finder_cover_backfill_toast">Caricamento copertine: questa fonte non ne elenca. Disattivalo in Impostazioni → Rete.</string>
     <string name="st_network_ua">User-Agent dello scraper</string>
     <string name="st_network_ua_empty">Lascia vuoto per il valore predefinito</string>
     <string name="st_network_ua_tip">Vuoto = l\'identità del browser integrata.</string>

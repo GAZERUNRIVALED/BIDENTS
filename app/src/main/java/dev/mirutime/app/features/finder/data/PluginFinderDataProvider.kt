@@ -463,6 +463,7 @@ class PluginFinderDataProvider(
     // their own stores either way).
     override fun refreshSource(sourceId: String) {
         filterSchemas.invalidate(sourceId)
+        CatalogCoverMemory.forgetSource(sourceId)
     }
 
     override suspend fun searchSource(sourceId: String, query: String): List<CatalogBook> {
@@ -750,6 +751,7 @@ class PluginFinderDataProvider(
     override suspend fun uninstall(id: String) {
         graph.uninstall(id)
         filterSchemas.invalidate(id)
+        CatalogCoverMemory.forgetSource(id)
     }
 
     override suspend fun setEnabled(id: String, enabled: Boolean) {
@@ -799,7 +801,9 @@ class PluginFinderDataProvider(
             return null
         }
         val baseUrl = source.metadata.baseUrl
-        val cover = resolveCoverUrl(meta.coverUrl, baseUrl) ?: return null
+        // "" = the book was fetched and has no cover; null stays "could not
+        // ask now", so the catalogue keeps the miss and retries the failure.
+        val cover = resolveCoverUrl(meta.coverUrl, baseUrl) ?: return ""
         graph.registerCoverReferers(sourceId, listOf(cover), baseUrl)
         return cover
     }

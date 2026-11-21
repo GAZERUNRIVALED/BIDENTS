@@ -1183,6 +1183,9 @@
     <string name="st_network_requests_desc">Uygulamanın sitelere kendini nasıl tanıttığı</string>
     <string name="st_network_cloudflare">Cloudflare atlatma</string>
     <string name="st_network_cloudflare_desc">Cloudflare doğrulamalarını otomatik çöz</string>
+    <string name="st_network_cover_backfill">Katalog kapak doldurma</string>
+    <string name="st_network_cover_backfill_desc">Eksik kapağı kitap başına bir ek istekle yükle. Kapak listelemeyen kaynaklarda kart başına bir çağrı maliyeti olur.</string>
+    <string name="finder_cover_backfill_toast">Kapaklar yükleniyor: bu kaynak hiç listelememiş. Ayarlar → Ağ üzerinden kapat.</string>
     <string name="st_network_ua">Kazıyıcı User-Agent</string>
     <string name="st_network_ua_empty">Varsayılan için boş bırakın</string>
     <string name="st_network_ua_tip">Boş = yerleşik tarayıcı kimliği.</string>

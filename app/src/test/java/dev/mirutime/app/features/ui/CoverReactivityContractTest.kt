@@ -47,6 +47,11 @@ class CoverReactivityContractTest {
         assertTrue(catalog.contains("snapshotFlow {"))
         assertTrue(catalog.contains("pageState.books to (pageState.active && !pageState.loading)"))
         assertTrue(catalog.contains("coverDone.add(url)"))
+        // A resolved cover and a "this book has none" answer both have to
+        // outlive the screen, or every visit re-asks the whole page.
+        assertTrue(catalog.contains("CatalogCoverMemory.cover(sourceId, book.bookUrl)"))
+        assertTrue(catalog.contains("\"\" -> CatalogCoverMemory.putMiss(sourceId, url)"))
+        assertTrue(catalog.contains("if (isLocal || isOpds) return@LaunchedEffect"))
     }
 
     @Test

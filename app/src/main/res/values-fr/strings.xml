@@ -1194,6 +1194,9 @@
     <string name="st_network_requests_desc">Comment l\'application se présente aux sites</string>
     <string name="st_network_cloudflare">Contournement de Cloudflare</string>
     <string name="st_network_cloudflare_desc">Résoudre automatiquement les défis Cloudflare</string>
+    <string name="st_network_cover_backfill">Remplissage des couvertures du catalogue</string>
+    <string name="st_network_cover_backfill_desc">Charger la couverture manquante avec une requête supplémentaire par livre. Les sources sans couvertures coûtent un appel par carte.</string>
+    <string name="finder_cover_backfill_toast">Chargement des couvertures : cette source n\'en liste aucune. Désactivez dans Paramètres → Réseau.</string>
     <string name="st_network_ua">User-Agent du scraper</string>
     <string name="st_network_ua_empty">Laissez vide pour la valeur par défaut</string>
     <string name="st_network_ua_tip">Vide = l\'identité de navigateur intégrée.</string>

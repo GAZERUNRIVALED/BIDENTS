@@ -1194,6 +1194,9 @@
     <string name="st_network_requests_desc">How the app introduces itself to sites</string>
     <string name="st_network_cloudflare">Cloudflare bypass</string>
     <string name="st_network_cloudflare_desc">Solve Cloudflare challenges automatically</string>
+    <string name="st_network_cover_backfill">Catalogue cover backfill</string>
+    <string name="st_network_cover_backfill_desc">Load a missing cover with one extra request per book. Sources that list no covers cost one call per card.</string>
+    <string name="finder_cover_backfill_toast">Loading covers: this source lists none. Turn it off in Settings → Network.</string>
     <string name="st_network_ua">Scraper User-Agent</string>
     <string name="st_network_ua_empty">Leave empty for default</string>
     <string name="st_network_ua_tip">Empty = the built-in browser identity.</string>

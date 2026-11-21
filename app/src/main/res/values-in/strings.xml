@@ -1172,6 +1172,9 @@
     <string name="st_network_requests_desc">Cara aplikasi memperkenalkan diri ke situs</string>
     <string name="st_network_cloudflare">Pemintasan Cloudflare</string>
     <string name="st_network_cloudflare_desc">Selesaikan tantangan Cloudflare secara otomatis</string>
+    <string name="st_network_cover_backfill">Pelengkapan sampul katalog</string>
+    <string name="st_network_cover_backfill_desc">Muat sampul yang hilang dengan satu permintaan tambahan per buku. Sumber yang tidak mencantumkan sampul memakan satu panggilan per kartu.</string>
+    <string name="finder_cover_backfill_toast">Memuat sampul: sumber ini tidak mencantumkannya. Matikan di Setelan → Jaringan.</string>
     <string name="st_network_ua">User-Agent pengikis</string>
     <string name="st_network_ua_empty">Biarkan kosong untuk bawaan</string>
     <string name="st_network_ua_tip">Kosong = identitas peramban bawaan.</string>

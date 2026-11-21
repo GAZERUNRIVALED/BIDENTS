@@ -50,6 +50,7 @@ data class PersistedSettings(
     val pinnedSources: List<String> = defaultPinnedSources,
     val filterPresets: Map<String, List<FilterPreset>> = emptyMap(),
     val searchHistory: Map<String, List<String>> = emptyMap(),
+    val catalogCoverBackfill: Boolean = true,
     val appUpdateCheck: Boolean = true,
     val libraryAutoUpdate: Boolean = true,
     val libraryLastRunAt: Long = 0L,
@@ -340,6 +341,8 @@ class SettingsStore(private val values: KeyValueStore) {
             userAgent = values.getString(KEY_USER_AGENT) ?: defaults.userAgent,
             cloudflareBypass = values.getBoolean(KEY_CLOUDFLARE_BYPASS)
                 ?: defaults.cloudflareBypass,
+            catalogCoverBackfill = values.getBoolean(KEY_CATALOG_COVER_BACKFILL)
+                ?: defaults.catalogCoverBackfill,
             massAddDelayMs = values.getInt(KEY_MASS_ADD_DELAY_MS) ?: defaults.massAddDelayMs,
             downloadDelayMs = values.getInt(KEY_DOWNLOAD_DELAY_MS) ?: defaults.downloadDelayMs,
             autoBackup = values.getBoolean(KEY_AUTO_BACKUP) ?: defaults.autoBackup,
@@ -439,6 +442,7 @@ class SettingsStore(private val values: KeyValueStore) {
                 KEY_NEXT_RULE_ID to settings.nextRuleId,
                 KEY_USER_AGENT to settings.userAgent,
                 KEY_CLOUDFLARE_BYPASS to settings.cloudflareBypass,
+                KEY_CATALOG_COVER_BACKFILL to settings.catalogCoverBackfill,
                 KEY_MASS_ADD_DELAY_MS to settings.massAddDelayMs,
                 KEY_DOWNLOAD_DELAY_MS to settings.downloadDelayMs,
                 KEY_AUTO_BACKUP to settings.autoBackup,
@@ -530,6 +534,7 @@ class SettingsStore(private val values: KeyValueStore) {
         private const val KEY_NEXT_RULE_ID = "USER_REGEX_CLEANUP_NEXT_ID"
         private const val KEY_USER_AGENT = "SCRAPER_USER_AGENT"
         private const val KEY_CLOUDFLARE_BYPASS = "CLOUDFLARE_BYPASS_ENABLED"
+        private const val KEY_CATALOG_COVER_BACKFILL = "CATALOG_COVER_BACKFILL"
         private const val KEY_MASS_ADD_DELAY_MS = "MASS_ADD_DELAY_MS"
         private const val KEY_DOWNLOAD_DELAY_MS = "DOWNLOAD_DELAY_MS"
         private const val KEY_AUTO_BACKUP = "BACKUP_AUTO_ENABLED"

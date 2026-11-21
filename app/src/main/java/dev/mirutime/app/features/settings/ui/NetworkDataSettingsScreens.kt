@@ -101,6 +101,13 @@ fun NetworkSettingsScreen(contentPadding: PaddingValues) {
                     onChange = { s.cloudflareBypass = it },
                 )
                 MiruRowDivider()
+                SettingsSwitchRow(
+                    title = stringResource(R.string.st_network_cover_backfill),
+                    subtitle = stringResource(R.string.st_network_cover_backfill_desc),
+                    checked = s.catalogCoverBackfill,
+                    onChange = { s.catalogCoverBackfill = it },
+                )
+                MiruRowDivider()
                 SettingsTextField(
                     label = stringResource(R.string.st_network_ua),
                     value = s.userAgent,

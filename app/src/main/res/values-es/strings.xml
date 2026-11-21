@@ -1194,6 +1194,9 @@
     <string name="st_network_requests_desc">Cómo se presenta la app a los sitios</string>
     <string name="st_network_cloudflare">Omisión de Cloudflare</string>
     <string name="st_network_cloudflare_desc">Resolver los desafíos de Cloudflare automáticamente</string>
+    <string name="st_network_cover_backfill">Relleno de portadas del catálogo</string>
+    <string name="st_network_cover_backfill_desc">Cargar la portada que falta con una petición extra por libro. En fuentes que no listan portadas cuesta una llamada por tarjeta.</string>
+    <string name="finder_cover_backfill_toast">Cargando portadas: esta fuente no lista ninguna. Desactívalo en Ajustes → Red.</string>
     <string name="st_network_ua">User-Agent del scraper</string>
     <string name="st_network_ua_empty">Déjalo vacío para usar el predeterminado</string>
     <string name="st_network_ua_tip">Vacío = la identidad de navegador integrada.</string>
