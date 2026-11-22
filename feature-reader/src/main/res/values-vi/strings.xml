@@ -3,6 +3,9 @@
     <!-- Reader UI moved from :app. Shared names are also kept in :app for
          screens that still live there; :app wins the merge. -->
     <string name="rd_selection_search">Tìm trên web</string>
+    <string name="rd_selection_replace">Thay thế…</string>
+    <string name="rd_selection_share">Chia sẻ</string>
+    <string name="rd_selection_dictionary">Từ điển</string>
     <string name="rd_translation_badge_desc">Chế độ dịch</string>
     <string name="rd_retry">Thử lại</string>
     <string name="rd_open_login">Mở đăng nhập</string>
@@ -121,8 +124,8 @@
     <string name="rd_prev_chapter">Chương trước</string>
     <string name="rd_chapter_loading">Đang tải chương</string>
     <string name="rd_reading">Đang đọc</string>
-    <string name="rd_regex">Biểu thức chính quy</string>
-    <string name="rd_regex_desc">Làm sạch văn bản chương bằng quy tắc</string>
+    <string name="rd_regex">Thay thế thuật ngữ</string>
+    <string name="rd_regex_desc">Đổi tên thuật ngữ trong toàn bộ sách bằng quy tắc</string>
     <string name="rd_reset">Đặt lại</string>
     <string name="rd_reset_confirm_desc">Mọi cài đặt trình đọc sẽ trở về mặc định.</string>
     <string name="rd_reset_confirm_title">Đặt lại kiểu?</string>

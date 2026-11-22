@@ -886,8 +886,8 @@
     <string name="st_translation_header_desc">Сервисы, промпты и языковые пары</string>
     <string name="st_mode_global">одна пара для всех</string>
     <string name="st_mode_per_novel">для каждой новеллы</string>
-    <string name="st_regex">Очистка регулярками</string>
-    <string name="st_regex_header_desc">Очистка текста глав</string>
+    <string name="st_regex">Замена терминов</string>
+    <string name="st_regex_header_desc">Замена терминов и очистка текста глав</string>
     <string name="st_regex_summary_fmt">Включено правил: %1$d из %2$d</string>
     <string name="st_network">Сеть</string>
     <string name="st_network_header_desc">Запросы, задержки и фоновая работа</string>
@@ -1373,8 +1373,6 @@
     <string name="rd_style">Стиль</string>
     <string name="rd_more">Ещё</string>
     <string name="rd_translation">Перевод</string>
-    <string name="rd_regex">Регулярные выражения</string>
-    <string name="rd_regex_desc">Очистка текста главы правилами</string>
     <string name="rd_prev_chapter">Предыдущая глава</string>
     <string name="rd_next_chapter">Следующая глава</string>
     <string name="rd_open_web">Открыть главу в браузере</string>

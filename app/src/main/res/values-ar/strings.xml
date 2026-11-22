@@ -904,8 +904,8 @@
     <string name="st_translation_header_desc">المزوّدون والتعليمات وأزواج اللغات</string>
     <string name="st_mode_global">زوج واحد للكل</string>
     <string name="st_mode_per_novel">لكل رواية</string>
-    <string name="st_regex">تنظيف التعبيرات النمطية</string>
-    <string name="st_regex_header_desc">تنظيف نص الفصل</string>
+    <string name="st_regex">استبدال المصطلحات</string>
+    <string name="st_regex_header_desc">استبدال المصطلحات وتنظيف النص</string>
     <string name="st_regex_summary_fmt">%1$d من %2$d قاعدة مفعّلة</string>
     <string name="st_network">الشبكة</string>
     <string name="st_network_header_desc">الطلبات والتأخيرات والعمل في الخلفية</string>
@@ -1191,7 +1191,7 @@
     <string name="st_rx_clear">مسح</string>
     <string name="st_rx_global">عام</string>
     <string name="st_rx_book">هذا الكتاب</string>
-    <string name="st_rx_empty">لا قواعد تعبيرات نمطية بعد. أضف أول قاعدة!</string>
+    <string name="st_rx_empty">لا توجد قواعد بعد. أضف أول قاعدة!</string>
     <string name="st_rx_no_match">لا قواعد مطابقة لبحثك</string>
     <string name="st_rx_reorder">إعادة ترتيب القاعدة</string>
     <string name="st_rx_preview">معاينة</string>
@@ -1392,8 +1392,6 @@
     <string name="rd_style">النمط</string>
     <string name="rd_more">المزيد</string>
     <string name="rd_translation">الترجمة</string>
-    <string name="rd_regex">تعبير نمطي</string>
-    <string name="rd_regex_desc">تنظيف نص الفصل بالقواعد</string>
     <string name="rd_prev_chapter">الفصل السابق</string>
     <string name="rd_next_chapter">الفصل التالي</string>
     <string name="rd_open_web">فتح الفصل في المتصفح</string>

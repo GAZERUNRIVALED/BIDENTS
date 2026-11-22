@@ -89,9 +89,13 @@ import dev.mirutime.feature.reader.ui.ReaderPanel
 import dev.mirutime.feature.reader.ui.ReaderPanelHost
 import dev.mirutime.feature.reader.ui.ReaderStylePreviewState
 import dev.mirutime.feature.reader.ui.ReaderTap
+import dev.mirutime.feature.reader.ui.SelectionActions
 import dev.mirutime.feature.reader.ui.readerBackClosesOverlay
 import dev.mirutime.feature.reader.ui.awaitReaderTap
 import dev.mirutime.feature.reader.ui.menuTapToggles
+import dev.mirutime.feature.reader.ui.canProcessText
+import dev.mirutime.feature.reader.ui.openProcessText
+import dev.mirutime.feature.reader.ui.openShareText
 import dev.mirutime.feature.reader.ui.openWebSearch
 import dev.mirutime.feature.reader.ui.readerBottomPaddingDp
 import dev.mirutime.feature.reader.ui.readerTopPaddingDp
@@ -123,6 +127,8 @@ fun ReaderScreen(
     reopened: Boolean = false,
     onBack: () -> Unit,
     onOpenRegex: (String) -> Unit,
+    /** Term-replacement destination prefilled with the selected text. */
+    onOpenTermReplace: ((novelUrl: String, term: String) -> Unit)? = null,
     onOpenWebView: (url: String, title: String) -> Unit,
     // Login/auth link from a typed plugin failure. Defaults to the shared
     // in-app WebView so the clearance lands in the same cookie store.
@@ -197,6 +203,23 @@ fun ReaderScreen(
     val textColor = Color(displayStyle.effectiveTextColor())
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // Selection actions: the reader is the only place that knows the open book,
+    // so the menu handlers are bound here and handed down as one value.
+    val dictionaryAvailable = remember(context) { canProcessText(context) }
+    val selectionActions = remember(context, bookUrl, onOpenTermReplace, dictionaryAvailable) {
+        SelectionActions(
+            onSearch = { text -> openWebSearch(context, text) },
+            onReplace = onOpenTermReplace?.let { open ->
+                { text: String -> open(bookUrl, text) }
+            },
+            onShare = { text -> openShareText(context, text) },
+            onDictionary = if (dictionaryAvailable) {
+                { text -> openProcessText(context, text) }
+            } else {
+                null
+            },
+        )
+    }
     val listState = rememberLazyListState()
     val lifecycleOwner = LocalLifecycleOwner.current
     var panel by remember { mutableStateOf<ReaderPanel?>(null) }
@@ -1151,7 +1174,7 @@ fun ReaderScreen(
                     state.chapters.firstOrNull()?.let { scope.launch { store.goToChapter(it.index) } }
                 },
                 onOpenAuth = onOpenAuthUrl,
-                onSearchSelection = { text -> openWebSearch(context, text) },
+                selectionActions = selectionActions,
                 onUserScrollChange = { autoScrollTouching = it },
                 onBack = onBack,
                 onRetryOpen = {
@@ -1489,7 +1512,7 @@ private fun BoxScope.ReaderContent(
     onLoadNext: (Int) -> Unit,
     onStartOver: () -> Unit,
     onOpenAuth: (String) -> Unit,
-    onSearchSelection: (String) -> Unit,
+    selectionActions: SelectionActions?,
     onUserScrollChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onRetryOpen: () -> Unit,
@@ -1587,7 +1610,7 @@ private fun BoxScope.ReaderContent(
             onAnchor = onAnchor,
             onChapterFinished = onChapterFinished,
             onToggleChrome = onToggleChrome,
-            onSearchSelection = onSearchSelection,
+            selectionActions = selectionActions,
         )
         else -> ReaderFeed(
             state = state,
@@ -1601,7 +1624,7 @@ private fun BoxScope.ReaderContent(
             translationFirst = translationFirst,
             ttsHighlight = ttsHighlight,
             focusToken = focusToken,
-            onSearchSelection = onSearchSelection,
+            selectionActions = selectionActions,
             onAnchor = onAnchor,
             onRetry = onRetry,
             onLoadPrevious = onLoadPrevious,

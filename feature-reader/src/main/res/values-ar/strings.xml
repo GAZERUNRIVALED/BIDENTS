@@ -3,6 +3,9 @@
     <!-- واجهة القارئ نُقلت من :app. الأسماء المشتركة محفوظة أيضًا في :app
          للشاشات التي ما زالت هناك؛ و:app يفوز عند الدمج. -->
     <string name="rd_selection_search">بحث في الويب</string>
+    <string name="rd_selection_replace">استبدال…</string>
+    <string name="rd_selection_share">مشاركة</string>
+    <string name="rd_selection_dictionary">قاموس</string>
     <string name="rd_translation_badge_desc">وضع الترجمة</string>
     <string name="rd_retry">إعادة المحاولة</string>
     <string name="rd_open_login">فتح تسجيل الدخول</string>
@@ -121,8 +124,8 @@
     <string name="rd_prev_chapter">الفصل السابق</string>
     <string name="rd_chapter_loading">جارٍ تحميل الفصل</string>
     <string name="rd_reading">القراءة</string>
-    <string name="rd_regex">تعبير نمطي</string>
-    <string name="rd_regex_desc">تنظيف نص الفصل بالقواعد</string>
+    <string name="rd_regex">استبدال المصطلحات</string>
+    <string name="rd_regex_desc">إعادة تسمية المصطلحات في الكتاب كله بالقواعد</string>
     <string name="rd_reset">إعادة تعيين</string>
     <string name="rd_reset_confirm_desc">ستعود كل إعدادات القارئ إلى قيمها الافتراضية.</string>
     <string name="rd_reset_confirm_title">إعادة تعيين النمط؟</string>

@@ -39,6 +39,15 @@ class RegexRuleCacheTest {
         assertNotSame(rule("foo").compiled(), rule("foo", wholeWords = true).compiled())
     }
 
+    // Java's \b is ASCII-only by default: without the Unicode flag a
+    // whole-word rule silently does nothing on Cyrillic or other scripts.
+    @Test
+    fun `wholeWords matches non-latin words`() {
+        val cyrillic = rule("Иван", replacement = "X", wholeWords = true)
+
+        assertEquals("Привет X и Иванка", applyRules(listOf(cyrillic), "Привет Иван и Иванка"))
+    }
+
     @Test
     fun `invalid pattern stays null and is skipped`() {
         val invalid = rule("[")

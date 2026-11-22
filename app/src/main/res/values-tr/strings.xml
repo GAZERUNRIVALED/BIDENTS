@@ -861,8 +861,8 @@
     <string name="st_translation_header_desc">Sağlayıcılar, komutlar ve dil çiftleri</string>
     <string name="st_mode_global">tümü için tek çift</string>
     <string name="st_mode_per_novel">roman başına</string>
-    <string name="st_regex">Düzenli ifade temizliği</string>
-    <string name="st_regex_header_desc">Bölüm metni temizliği</string>
+    <string name="st_regex">Terim değiştirme</string>
+    <string name="st_regex_header_desc">Terimleri değiştir ve metni temizle</string>
     <string name="st_regex_summary_fmt">%1$d / %2$d kural açık</string>
     <string name="st_network">Ağ</string>
     <string name="st_network_header_desc">İstekler, gecikmeler ve arka plan çalışması</string>
@@ -1148,7 +1148,7 @@
     <string name="st_rx_clear">Temizle</string>
     <string name="st_rx_global">Genel</string>
     <string name="st_rx_book">Bu kitap</string>
-    <string name="st_rx_empty">Henüz düzenli ifade kuralı yok. İlk kuralınızı ekleyin!</string>
+    <string name="st_rx_empty">Henüz kural yok. İlk kuralı ekleyin!</string>
     <string name="st_rx_no_match">Aramanızla eşleşen kural yok</string>
     <string name="st_rx_reorder">Kuralı yeniden sırala</string>
     <string name="st_rx_preview">Önizleme</string>
@@ -1349,8 +1349,6 @@
     <string name="rd_style">Stil</string>
     <string name="rd_more">Daha fazla</string>
     <string name="rd_translation">Çeviri</string>
-    <string name="rd_regex">Düzenli ifade</string>
-    <string name="rd_regex_desc">Bölüm metnini kurallarla temizleyin</string>
     <string name="rd_prev_chapter">Önceki bölüm</string>
     <string name="rd_next_chapter">Sonraki bölüm</string>
     <string name="rd_open_web">Bölümü tarayıcıda aç</string>

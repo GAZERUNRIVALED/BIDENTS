@@ -850,8 +850,8 @@
     <string name="st_translation_header_desc">Nhà cung cấp, lời nhắc và cặp ngôn ngữ</string>
     <string name="st_mode_global">một cặp cho tất cả</string>
     <string name="st_mode_per_novel">theo từng tiểu thuyết</string>
-    <string name="st_regex">Làm sạch bằng biểu thức chính quy</string>
-    <string name="st_regex_header_desc">Làm sạch văn bản chương</string>
+    <string name="st_regex">Thay thế thuật ngữ</string>
+    <string name="st_regex_header_desc">Thay thế thuật ngữ và dọn văn bản</string>
     <string name="st_regex_summary_fmt">%1$d trên %2$d quy tắc đang bật</string>
     <string name="st_network">Mạng</string>
     <string name="st_network_header_desc">Yêu cầu, độ trễ và tác vụ nền</string>
@@ -1137,7 +1137,7 @@
     <string name="st_rx_clear">Xóa</string>
     <string name="st_rx_global">Toàn cầu</string>
     <string name="st_rx_book">Sách này</string>
-    <string name="st_rx_empty">Chưa có quy tắc biểu thức chính quy. Thêm quy tắc đầu tiên!</string>
+    <string name="st_rx_empty">Chưa có quy tắc nào. Hãy thêm quy tắc đầu tiên!</string>
     <string name="st_rx_no_match">Không có quy tắc phù hợp tìm kiếm</string>
     <string name="st_rx_reorder">Sắp xếp lại quy tắc</string>
     <string name="st_rx_preview">Xem trước</string>
@@ -1338,8 +1338,6 @@
     <string name="rd_style">Kiểu</string>
     <string name="rd_more">Thêm</string>
     <string name="rd_translation">Dịch</string>
-    <string name="rd_regex">Biểu thức chính quy</string>
-    <string name="rd_regex_desc">Làm sạch văn bản chương bằng quy tắc</string>
     <string name="rd_prev_chapter">Chương trước</string>
     <string name="rd_next_chapter">Chương tiếp theo</string>
     <string name="rd_open_web">Mở chương trong trình duyệt</string>

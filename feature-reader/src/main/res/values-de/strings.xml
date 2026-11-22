@@ -3,6 +3,9 @@
     <!-- Reader UI moved from :app. Shared names are also kept in :app for
          screens that still live there; :app wins the merge. -->
     <string name="rd_selection_search">Im Web suchen</string>
+    <string name="rd_selection_replace">Ersetzen…</string>
+    <string name="rd_selection_share">Teilen</string>
+    <string name="rd_selection_dictionary">Wörterbuch</string>
     <string name="rd_translation_badge_desc">Übersetzungsmodus</string>
     <string name="rd_retry">Erneut versuchen</string>
     <string name="rd_open_login">Anmeldung öffnen</string>
@@ -121,8 +124,8 @@
     <string name="rd_prev_chapter">Vorheriges Kapitel</string>
     <string name="rd_chapter_loading">Kapitel wird geladen</string>
     <string name="rd_reading">Lesen</string>
-    <string name="rd_regex">Regulärer Ausdruck</string>
-    <string name="rd_regex_desc">Kapiteltext mit Regeln bereinigen</string>
+    <string name="rd_regex">Begriffe ersetzen</string>
+    <string name="rd_regex_desc">Begriffe im ganzen Buch per Regeln umbenennen</string>
     <string name="rd_reset">Zurücksetzen</string>
     <string name="rd_reset_confirm_desc">Alle Reader-Einstellungen kehren zu ihren Standardwerten zurück.</string>
     <string name="rd_reset_confirm_title">Stil zurücksetzen?</string>

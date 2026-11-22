@@ -873,8 +873,8 @@
     <string name="st_translation_header_desc">Providers, prompts and language pairs</string>
     <string name="st_mode_global">one pair for all</string>
     <string name="st_mode_per_novel">per novel</string>
-    <string name="st_regex">Regex cleanup</string>
-    <string name="st_regex_header_desc">Chapter text cleanup</string>
+    <string name="st_regex">Term replacement</string>
+    <string name="st_regex_header_desc">Replace terms and clean chapter text</string>
     <string name="st_regex_summary_fmt">%1$d of %2$d rules on</string>
     <string name="st_network">Network</string>
     <string name="st_network_header_desc">Requests, delays and background work</string>
@@ -1159,7 +1159,7 @@
     <string name="st_rx_clear">Clear</string>
     <string name="st_rx_global">Global</string>
     <string name="st_rx_book">This book</string>
-    <string name="st_rx_empty">No regex rules yet. Add your first rule!</string>
+    <string name="st_rx_empty">No rules yet. Add your first rule!</string>
     <string name="st_rx_no_match">No rules match your search</string>
     <string name="st_rx_reorder">Reorder rule</string>
     <string name="st_rx_preview">Preview</string>
@@ -1360,8 +1360,6 @@
     <string name="rd_style">Style</string>
     <string name="rd_more">More</string>
     <string name="rd_translation">Translation</string>
-    <string name="rd_regex">Regex</string>
-    <string name="rd_regex_desc">Clean chapter text with rules</string>
     <string name="rd_prev_chapter">Previous chapter</string>
     <string name="rd_next_chapter">Next chapter</string>
     <string name="rd_open_web">Open chapter in browser</string>

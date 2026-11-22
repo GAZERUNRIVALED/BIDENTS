@@ -861,8 +861,8 @@
     <string name="st_translation_header_desc">Anbieter, Anweisungen und Sprachpaare</string>
     <string name="st_mode_global">ein Paar für alle</string>
     <string name="st_mode_per_novel">pro Roman</string>
-    <string name="st_regex">Bereinigung per regulärem Ausdruck</string>
-    <string name="st_regex_header_desc">Bereinigung des Kapiteltexts</string>
+    <string name="st_regex">Begriffe ersetzen</string>
+    <string name="st_regex_header_desc">Begriffe ersetzen und Text bereinigen</string>
     <string name="st_regex_summary_fmt">%1$d von %2$d Regeln aktiv</string>
     <string name="st_network">Netzwerk</string>
     <string name="st_network_header_desc">Anfragen, Pausen und Hintergrundarbeit</string>
@@ -1148,7 +1148,7 @@
     <string name="st_rx_clear">Leeren</string>
     <string name="st_rx_global">Global</string>
     <string name="st_rx_book">Dieses Buch</string>
-    <string name="st_rx_empty">Noch keine Regeln für reguläre Ausdrücke. Füge die erste hinzu!</string>
+    <string name="st_rx_empty">Noch keine Regeln. Fügen Sie die erste hinzu!</string>
     <string name="st_rx_no_match">Keine Regeln passen zu deiner Suche</string>
     <string name="st_rx_reorder">Regel verschieben</string>
     <string name="st_rx_preview">Vorschau</string>
@@ -1349,8 +1349,6 @@
     <string name="rd_style">Stil</string>
     <string name="rd_more">Mehr</string>
     <string name="rd_translation">Übersetzung</string>
-    <string name="rd_regex">Regulärer Ausdruck</string>
-    <string name="rd_regex_desc">Kapiteltext mit Regeln bereinigen</string>
     <string name="rd_prev_chapter">Vorheriges Kapitel</string>
     <string name="rd_next_chapter">Nächstes Kapitel</string>
     <string name="rd_open_web">Kapitel im Browser öffnen</string>

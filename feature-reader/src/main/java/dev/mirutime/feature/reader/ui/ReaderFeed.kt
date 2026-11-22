@@ -104,7 +104,7 @@ internal fun ReaderFeed(
     ttsHighlight: TtsHighlight? = null,
     /** Bumped by the player's Focus button; forces a scroll to the TTS block. */
     focusToken: Int = 0,
-    onSearchSelection: (String) -> Unit = {},
+    selectionActions: SelectionActions? = null,
     onAnchor: (ReadingAnchor, Int) -> Unit,
     onRetry: (Int) -> Unit,
     onLoadPrevious: (Int) -> Unit,
@@ -369,7 +369,7 @@ internal fun ReaderFeed(
                         parallel = parallel,
                         translationFirst = translationFirst,
                         ttsHighlight = ttsHighlight,
-                        onSearchSelection = onSearchSelection,
+                        selectionActions = selectionActions,
                         bleed = maxOf(startPadding, endPadding),
                     )
                 }

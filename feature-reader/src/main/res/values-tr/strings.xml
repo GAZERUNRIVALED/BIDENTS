@@ -3,6 +3,9 @@
     <!-- Reader UI moved from :app. Shared names are also kept in :app for
          screens that still live there; :app wins the merge. -->
     <string name="rd_selection_search">Web\'de ara</string>
+    <string name="rd_selection_replace">Değiştir…</string>
+    <string name="rd_selection_share">Paylaş</string>
+    <string name="rd_selection_dictionary">Sözlük</string>
     <string name="rd_translation_badge_desc">Çeviri modu</string>
     <string name="rd_retry">Yeniden dene</string>
     <string name="rd_open_login">Girişi aç</string>
@@ -121,8 +124,8 @@
     <string name="rd_prev_chapter">Önceki bölüm</string>
     <string name="rd_chapter_loading">Bölüm yükleniyor</string>
     <string name="rd_reading">Okuma</string>
-    <string name="rd_regex">Düzenli ifade</string>
-    <string name="rd_regex_desc">Bölüm metnini kurallarla temizleyin</string>
+    <string name="rd_regex">Terim değiştirme</string>
+    <string name="rd_regex_desc">Kurallarla kitap genelinde terimleri yeniden adlandır</string>
     <string name="rd_reset">Sıfırla</string>
     <string name="rd_reset_confirm_desc">Tüm okuyucu ayarları varsayılanlarına dönecek.</string>
     <string name="rd_reset_confirm_title">Stil sıfırlansın mı?</string>

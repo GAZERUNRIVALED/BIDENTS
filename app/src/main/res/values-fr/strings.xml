@@ -872,8 +872,8 @@
     <string name="st_translation_header_desc">Fournisseurs, invites et paires de langues</string>
     <string name="st_mode_global">une paire pour tout</string>
     <string name="st_mode_per_novel">par roman</string>
-    <string name="st_regex">Nettoyage par expressions régulières</string>
-    <string name="st_regex_header_desc">Nettoyage du texte des chapitres</string>
+    <string name="st_regex">Remplacement de termes</string>
+    <string name="st_regex_header_desc">Remplacer des termes et nettoyer le texte</string>
     <string name="st_regex_summary_fmt">%1$d règles sur %2$d actives</string>
     <string name="st_network">Réseau</string>
     <string name="st_network_header_desc">Requêtes, délais et travail en arrière-plan</string>
@@ -1159,7 +1159,7 @@
     <string name="st_rx_clear">Effacer</string>
     <string name="st_rx_global">Global</string>
     <string name="st_rx_book">Ce livre</string>
-    <string name="st_rx_empty">Aucune règle pour l\'instant. Ajoutez votre première règle !</string>
+    <string name="st_rx_empty">Aucune règle pour l\'instant. Ajoutez la première !</string>
     <string name="st_rx_no_match">Aucune règle ne correspond à votre recherche</string>
     <string name="st_rx_reorder">Réorganiser la règle</string>
     <string name="st_rx_preview">Aperçu</string>
@@ -1360,8 +1360,6 @@
     <string name="rd_style">Style</string>
     <string name="rd_more">Plus</string>
     <string name="rd_translation">Traduction</string>
-    <string name="rd_regex">Expression régulière</string>
-    <string name="rd_regex_desc">Nettoyer le texte du chapitre avec des règles</string>
     <string name="rd_prev_chapter">Chapitre précédent</string>
     <string name="rd_next_chapter">Chapitre suivant</string>
     <string name="rd_open_web">Ouvrir le chapitre dans le navigateur</string>

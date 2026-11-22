@@ -28,6 +28,12 @@
         <intent>
             <action android:name="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS" />
         </intent>
+        <!-- The reader's Dictionary item is hidden unless a PROCESS_TEXT app
+             is visible; Android 11+ package visibility hides them otherwise. -->
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT" />
+            <data android:mimeType="text/plain" />
+        </intent>
     </queries>
     <!-- Settings → Network: real system opt-out dialog, never a local flag. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />

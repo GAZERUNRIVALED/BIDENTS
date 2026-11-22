@@ -26,7 +26,7 @@ object SettingsRoutes {
     const val NovelTranslation = "settings/translation/books"
     const val PluginTranslation = "settings/translation/plugins"
     const val Regex = "settings/regex"
-    const val RegexPattern = "settings/regex?novel={novel}"
+    const val RegexPattern = "settings/regex?novel={novel}&find={find}"
     const val Network = "settings/section/network"
     const val Data = "settings/section/data"
     const val Backup = "settings/section/backup"

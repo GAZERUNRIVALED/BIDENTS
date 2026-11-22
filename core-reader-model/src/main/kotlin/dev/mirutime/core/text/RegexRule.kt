@@ -11,7 +11,7 @@ enum class RegexRuleScope { Original, Translation, Both }
 enum class RegexRuleTarget { Original, Translation }
 
 // One user regex cleanup rule, global or per-novel.
-// `wholeWords` wraps the pattern in \b…\b.
+// `wholeWords` wraps the pattern in a Unicode-aware \b…\b.
 @Serializable
 data class RegexRule(
     val id: Long,
@@ -30,6 +30,32 @@ fun RegexRule.appliesTo(target: RegexRuleTarget): Boolean = when (scope) {
 }
 
 // Pure regex helpers shared by the rules screen and its edit sheet.
+
+// A term taken from the reader selection stays a literal: escape only the
+// metacharacters, so a plain word reads as itself in the editor.
+private val REGEX_META = Regex("""([\\.^$|?*+()\[\]{}])""")
+
+fun literalPattern(term: String): String =
+    term.replace(REGEX_META) { match -> "\\" + match.value }
+
+/**
+ * The rule a term selected in the reader seeds: literal, whole-word, and OFF
+ * until it has a replacement — an enabled empty replacement deletes the term
+ * from every chapter.
+ */
+fun termSeedRule(
+    term: String,
+    id: Long,
+    applyTo: RegexRuleScope = RegexRuleScope.Both,
+): RegexRule = RegexRule(
+    id = id,
+    pattern = literalPattern(term),
+    replacement = "",
+    description = "",
+    enabled = false,
+    wholeWords = true,
+    scope = applyTo,
+)
 
 // Compile error text or null when the pattern is valid.
 fun regexError(pattern: String): String? {
@@ -55,7 +81,9 @@ fun RegexRule.compiled(): Regex? {
     val cache = if (wholeWords) wholeWordsCache else plainCache
     val compiled = cache[pattern] ?: run {
         val regex = try {
-            Regex(if (wholeWords) "\\b(?:$pattern)\\b" else pattern)
+            // (?U) makes \b Unicode-aware; otherwise whole-word rules never
+            // match non-Latin text.
+            Regex(if (wholeWords) "(?U)\\b(?:$pattern)\\b" else pattern)
         } catch (_: Exception) {
             NEVER_MATCH
         }

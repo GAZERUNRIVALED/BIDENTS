@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -88,12 +89,12 @@ fun ReaderBlockView(
     parallel: Boolean = false,
     translationFirst: Boolean = true,
     ttsHighlight: TtsHighlight? = null,
-    onSearchSelection: ((String) -> Unit)? = null,
+    selectionActions: SelectionActions? = null,
     bleed: Dp = 0.dp,
 ) {
     val searchable = SelectionSearch.isSearchable(block.kind)
     val selectionState = rememberSelectionState()
-    val searchLabel = stringResource(R.string.rd_selection_search)
+    val selectionLabels = rememberSelectionMenuLabels()
     val body: @Composable () -> Unit = {
         when {
             translated != null && searchable && parallel ->
@@ -130,8 +131,8 @@ fun ReaderBlockView(
         ) { body() }
     }
     if (style.selectableText) {
-        val menuModifier = if (searchable && onSearchSelection != null) {
-            Modifier.selectionSearchMenu(selectionState, searchLabel, onSearchSelection)
+        val menuModifier = if (searchable && selectionActions != null) {
+            Modifier.selectionActionsMenu(selectionState, selectionLabels, selectionActions)
         } else {
             Modifier
         }
@@ -141,27 +142,65 @@ fun ReaderBlockView(
     }
 }
 
+/** Reader actions appended to the system text selection menu. */
+@Immutable
+data class SelectionActions(
+    val onSearch: (String) -> Unit,
+    val onShare: (String) -> Unit,
+    /** Null when the screen has no term-replacement destination. */
+    val onReplace: ((String) -> Unit)? = null,
+    /** Null when no installed app handles PROCESS_TEXT. */
+    val onDictionary: ((String) -> Unit)? = null,
+)
+
+/** Menu labels are resolved in composition; the menu builder is not composable. */
+internal data class SelectionMenuLabels(
+    val search: String,
+    val replace: String,
+    val share: String,
+    val dictionary: String,
+)
+
+@Composable
+internal fun rememberSelectionMenuLabels(): SelectionMenuLabels {
+    val search = stringResource(R.string.rd_selection_search)
+    val replace = stringResource(R.string.rd_selection_replace)
+    val share = stringResource(R.string.rd_selection_share)
+    val dictionary = stringResource(R.string.rd_selection_dictionary)
+    return remember(search, replace, share, dictionary) {
+        SelectionMenuLabels(search, replace, share, dictionary)
+    }
+}
+
 private object SelectionSearchMenuKey
+private object SelectionReplaceMenuKey
+private object SelectionShareMenuKey
+private object SelectionDictionaryMenuKey
 
 /**
- * Adds Search web next to the system Copy/Select all items. Search is useful
- * for both original and already-translated text; an empty selection builds no
- * custom item at all.
+ * Adds the reader's actions next to the system Copy/Select all items. An empty
+ * selection builds no custom item at all.
  */
-fun Modifier.selectionSearchMenu(
+internal fun Modifier.selectionActionsMenu(
     state: SelectionState,
-    label: String,
-    onSearch: (String) -> Unit,
+    labels: SelectionMenuLabels,
+    actions: SelectionActions,
 ): Modifier = appendTextContextMenuComponents {
-    val selected = SelectionSearch.normalize(state.selectedTexts)
-    if (selected.isNotEmpty()) {
-        item(key = SelectionSearchMenuKey, label = label) {
+    if (SelectionSearch.normalize(state.selectedTexts).isEmpty()) {
+        return@appendTextContextMenuComponents
+    }
+    fun actionItem(key: Any, label: String, onPick: (String) -> Unit) {
+        item(key = key, label = label) {
             val text = SelectionSearch.normalize(state.selectedTexts)
             close()
             state.clear()
-            if (text.isNotEmpty()) onSearch(text)
+            if (text.isNotEmpty()) onPick(text)
         }
     }
+    actionItem(SelectionSearchMenuKey, labels.search, actions.onSearch)
+    actions.onReplace?.let { actionItem(SelectionReplaceMenuKey, labels.replace, it) }
+    actionItem(SelectionShareMenuKey, labels.share, actions.onShare)
+    actions.onDictionary?.let { actionItem(SelectionDictionaryMenuKey, labels.dictionary, it) }
 }
 
 @Composable

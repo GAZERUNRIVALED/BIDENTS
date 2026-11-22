@@ -12,7 +12,7 @@ import dev.mirutime.app.features.reader.document.BlockKind
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-/** Pure helpers behind the native selection menu's Search web item. */
+/** Pure helpers behind the native selection menu's reader items. */
 internal object SelectionSearch {
 
     fun normalize(texts: List<CharSequence>): String =
@@ -52,4 +52,37 @@ fun openWebSearch(context: Context, query: String) {
             Toast.makeText(context, R.string.webview_no_app, Toast.LENGTH_SHORT).show()
         }
     }
+}
+
+/** Sends the selection to the system share sheet. */
+internal fun openShareText(context: Context, text: String) {
+    val body = text.trim()
+    if (body.isEmpty()) return
+    MiruLog.event("reader", "selection-share", "chars" to body.length)
+    val send = Intent(Intent.ACTION_SEND)
+        .setType("text/plain")
+        .putExtra(Intent.EXTRA_TEXT, body)
+    context.startActivity(Intent.createChooser(send, null))
+}
+
+/** True when an installed app handles PROCESS_TEXT (dictionaries, translators). */
+internal fun canProcessText(context: Context): Boolean =
+    Intent(Intent.ACTION_PROCESS_TEXT)
+        .setType("text/plain")
+        .resolveActivity(context.packageManager) != null
+
+/**
+ * Hands the selection to a PROCESS_TEXT handler: any installed dictionary or
+ * translator receives it as read-only input. A chooser is used because the
+ * default handler may be a translator while the item says Dictionary.
+ */
+internal fun openProcessText(context: Context, text: String) {
+    val body = text.trim()
+    if (body.isEmpty()) return
+    MiruLog.event("reader", "selection-process-text", "chars" to body.length)
+    val process = Intent(Intent.ACTION_PROCESS_TEXT)
+        .setType("text/plain")
+        .putExtra(Intent.EXTRA_PROCESS_TEXT, body)
+        .putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
+    context.startActivity(Intent.createChooser(process, null))
 }

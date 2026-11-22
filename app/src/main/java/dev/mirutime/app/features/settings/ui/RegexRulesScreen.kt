@@ -80,7 +80,9 @@ import dev.mirutime.core.text.RegexRule
 import dev.mirutime.core.text.RegexRuleScope
 import dev.mirutime.core.text.RegexRuleTarget
 import dev.mirutime.core.text.applyRulesFor
+import dev.mirutime.core.text.literalPattern
 import dev.mirutime.core.text.regexError
+import dev.mirutime.core.text.termSeedRule
 import dev.mirutime.uikit.AppBottomSheet
 import dev.mirutime.uikit.LocalMiruExtraColors
 import dev.mirutime.uikit.MiruCard
@@ -114,6 +116,8 @@ private val RuleChipTouch = compactTouchTarget(MiruSize.RowCompact)
 fun RegexRulesScreen(
     novelUrl: String?,
     contentPadding: PaddingValues,
+    /** Term selected in the reader; seeds a literal rule in this book's list. */
+    initialFind: String? = null,
 ) {
     val s = AppSettings
     val context = LocalContext.current
@@ -130,7 +134,9 @@ fun RegexRulesScreen(
     var previewOpen by remember { mutableStateOf(false) }
     var clearOpen by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<RegexRule?>(null) }
-    var autoFocusId by remember { mutableStateOf<Long?>(null) }
+    // Which row takes the caret, and in which field. One state so a seed and a
+    // manual add cannot leave the other flag behind.
+    var autoFocus by remember { mutableStateOf<RuleFocus?>(null) }
 
     val scopedNovel = if (bookScope) novelUrl else null
     // Read the store directly: a fast gesture or keystroke must not write back
@@ -205,7 +211,33 @@ fun RegexRulesScreen(
         val wholeWords = list.isEmpty() || list.any { it.wholeWords }
         store(list + RegexRule(id, "", "", "", true, wholeWords, applyTo))
         query = ""
-        autoFocusId = id
+        autoFocus = RuleFocus(id, replacement = false)
+    }
+
+    // A term carried in from the reader selection menu: seed a literal,
+    // whole-word rule in this book's list so only the replacement is left.
+    var seededTerm by rememberSaveable { mutableStateOf(false) }
+    var seededRuleId by rememberSaveable { mutableStateOf(0L) }
+    LaunchedEffect(initialFind) {
+        // Blocks are replaced one at a time, so only the selection's first line
+        // can be a term.
+        val term = initialFind?.lineSequence()?.firstOrNull()?.trim().orEmpty()
+        if (seededTerm || term.isEmpty() || scopedNovel == null) return@LaunchedEffect
+        seededTerm = true
+        val list = currentRules()
+        val existing = list.firstOrNull { it.pattern == literalPattern(term) }
+        if (existing == null) {
+            val rule = termSeedRule(term, s.newRuleId(), applyTo)
+            store(list + rule)
+            seededRuleId = rule.id
+            autoFocus = RuleFocus(rule.id, replacement = true)
+        } else {
+            // A rule that is still off with no replacement takes the same
+            // "switches on with its first replacement" path.
+            if (!existing.enabled && existing.replacement.isBlank()) seededRuleId = existing.id
+            autoFocus = RuleFocus(existing.id, replacement = true)
+        }
+        query = ""
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -464,12 +496,27 @@ fun RegexRulesScreen(
                             key(rule.id) {
                                 RegexRuleLine(
                                     rule = rule,
-                                    autoFocus = autoFocusId == rule.id,
-                                    onAutoFocusConsumed = { autoFocusId = null },
+                                    autoFocus = autoFocus?.id == rule.id,
+                                    focusReplacement = autoFocus?.replacement == true,
+                                    onAutoFocusConsumed = { autoFocus = null },
                                     onMove = { direction -> move(rule.id, direction) },
                                     onToggleEnabled = { edit(rule.id) { it.copy(enabled = !it.enabled) } },
                                     onPatternChange = { text -> edit(rule.id) { it.copy(pattern = text) } },
-                                    onReplacementChange = { text -> edit(rule.id) { it.copy(replacement = text) } },
+                                    onReplacementChange = { text ->
+                                        edit(rule.id) {
+                                            it.copy(
+                                                replacement = text,
+                                                // The seeded term rule switches
+                                                // itself on with its first
+                                                // replacement.
+                                                enabled = if (rule.id == seededRuleId) {
+                                                    text.isNotBlank()
+                                                } else {
+                                                    it.enabled
+                                                },
+                                            )
+                                        }
+                                    },
                                     onToggleWholeWords = {
                                         edit(rule.id) { it.copy(wholeWords = !it.wholeWords) }
                                     },
@@ -644,10 +691,14 @@ private fun RegexBottomBar(
 
 // One horizontal rule line: drag dots, compact switch, pattern, replacement,
 // [W] and delete. Every part of the row is reachable at >= 32dp.
+private data class RuleFocus(val id: Long, val replacement: Boolean)
+
 @Composable
 private fun RegexRuleLine(
     rule: RegexRule,
     autoFocus: Boolean,
+    /** A seeded term already has its pattern; put the caret in replacement. */
+    focusReplacement: Boolean = false,
     onAutoFocusConsumed: () -> Unit,
     onMove: (Int) -> Unit,
     onToggleEnabled: () -> Unit,
@@ -659,6 +710,7 @@ private fun RegexRuleLine(
 ) {
     val extra = LocalMiruExtraColors.current
     val patternFocus = remember { FocusRequester() }
+    val replacementFocus = remember { FocusRequester() }
     val requester = remember { BringIntoViewRequester() }
     if (autoFocus) {
         // Let the new row be laid out before focusing and scrolling it clear
@@ -670,7 +722,7 @@ private fun RegexRuleLine(
             // that disposes this effect.
             onAutoFocusConsumed()
             try {
-                patternFocus.requestFocus()
+                (if (focusReplacement) replacementFocus else patternFocus).requestFocus()
                 requester.bringIntoView()
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -715,6 +767,7 @@ private fun RegexRuleLine(
             description = stringResource(R.string.st_rx_replacement),
             ink = ink,
             modifier = Modifier.weight(1f),
+            focusRequester = replacementFocus,
         )
         WholeWordsBadge(
             active = rule.wholeWords,

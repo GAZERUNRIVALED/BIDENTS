@@ -3,6 +3,9 @@
     <!-- Reader UI moved from :app. Shared names are also kept in :app for
          screens that still live there; :app wins the merge. -->
     <string name="rd_selection_search">Cari di web</string>
+    <string name="rd_selection_replace">Ganti…</string>
+    <string name="rd_selection_share">Bagikan</string>
+    <string name="rd_selection_dictionary">Kamus</string>
     <string name="rd_translation_badge_desc">Mode terjemahan</string>
     <string name="rd_retry">Coba lagi</string>
     <string name="rd_open_login">Buka login</string>
@@ -121,8 +124,8 @@
     <string name="rd_prev_chapter">Bab sebelumnya</string>
     <string name="rd_chapter_loading">Memuat bab</string>
     <string name="rd_reading">Membaca</string>
-    <string name="rd_regex">Ekspresi reguler</string>
-    <string name="rd_regex_desc">Bersihkan teks bab dengan aturan</string>
+    <string name="rd_regex">Penggantian istilah</string>
+    <string name="rd_regex_desc">Ganti nama istilah di seluruh buku dengan aturan</string>
     <string name="rd_reset">Setel ulang</string>
     <string name="rd_reset_confirm_desc">Semua pengaturan pembaca akan kembali ke bawaan.</string>
     <string name="rd_reset_confirm_title">Setel ulang gaya?</string>

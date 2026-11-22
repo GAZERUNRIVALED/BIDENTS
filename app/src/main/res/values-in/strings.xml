@@ -850,8 +850,8 @@
     <string name="st_translation_header_desc">Penyedia, prompt, dan pasangan bahasa</string>
     <string name="st_mode_global">satu pasangan untuk semua</string>
     <string name="st_mode_per_novel">per novel</string>
-    <string name="st_regex">Pembersihan ekspresi reguler</string>
-    <string name="st_regex_header_desc">Pembersihan teks bab</string>
+    <string name="st_regex">Penggantian istilah</string>
+    <string name="st_regex_header_desc">Ganti istilah dan bersihkan teks</string>
     <string name="st_regex_summary_fmt">%1$d dari %2$d aturan aktif</string>
     <string name="st_network">Jaringan</string>
     <string name="st_network_header_desc">Permintaan, jeda, dan pekerjaan latar belakang</string>
@@ -1137,7 +1137,7 @@
     <string name="st_rx_clear">Bersihkan</string>
     <string name="st_rx_global">Global</string>
     <string name="st_rx_book">Buku ini</string>
-    <string name="st_rx_empty">Belum ada aturan ekspresi reguler. Tambahkan aturan pertama Anda!</string>
+    <string name="st_rx_empty">Belum ada aturan. Tambahkan aturan pertama!</string>
     <string name="st_rx_no_match">Tidak ada aturan yang cocok dengan pencarian Anda</string>
     <string name="st_rx_reorder">Ubah urutan aturan</string>
     <string name="st_rx_preview">Pratinjau</string>
@@ -1338,8 +1338,6 @@
     <string name="rd_style">Gaya</string>
     <string name="rd_more">Lainnya</string>
     <string name="rd_translation">Terjemahan</string>
-    <string name="rd_regex">Ekspresi reguler</string>
-    <string name="rd_regex_desc">Bersihkan teks bab dengan aturan</string>
     <string name="rd_prev_chapter">Bab sebelumnya</string>
     <string name="rd_next_chapter">Bab berikutnya</string>
     <string name="rd_open_web">Buka bab di peramban</string>

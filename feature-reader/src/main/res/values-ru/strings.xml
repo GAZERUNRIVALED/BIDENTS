@@ -3,6 +3,9 @@
     <!-- Reader UI moved from :app. Shared names are also kept in :app for
          screens that still live there; :app wins the merge. -->
     <string name="rd_selection_search">Искать в интернете</string>
+    <string name="rd_selection_replace">Заменить…</string>
+    <string name="rd_selection_share">Поделиться</string>
+    <string name="rd_selection_dictionary">Словарь</string>
     <string name="rd_translation_badge_desc">Режим перевода</string>
     <string name="rd_retry">Повторить</string>
     <string name="rd_open_login">Открыть вход</string>
@@ -121,8 +124,8 @@
     <string name="rd_prev_chapter">Предыдущая глава</string>
     <string name="rd_chapter_loading">Загрузка главы</string>
     <string name="rd_reading">Чтение</string>
-    <string name="rd_regex">Регулярные выражения</string>
-    <string name="rd_regex_desc">Очистка текста главы правилами</string>
+    <string name="rd_regex">Замена терминов</string>
+    <string name="rd_regex_desc">Переименовать термин во всей книге правилами</string>
     <string name="rd_reset">Сбросить</string>
     <string name="rd_reset_confirm_desc">Все настройки читалки вернутся к значениям по умолчанию.</string>
     <string name="rd_reset_confirm_title">Сбросить стиль?</string>

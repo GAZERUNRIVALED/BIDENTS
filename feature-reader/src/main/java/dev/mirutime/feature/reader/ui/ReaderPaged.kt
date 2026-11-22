@@ -80,7 +80,6 @@ import dev.mirutime.feature.reader.ui.chapterTitleStyle
 import dev.mirutime.feature.reader.ui.ReaderChapterHeader
 import dev.mirutime.feature.reader.ui.headingTextStyle
 import dev.mirutime.feature.reader.ui.paragraphText
-import dev.mirutime.feature.reader.ui.selectionSearchMenu
 import dev.mirutime.feature.reader.ui.toTextStyle
 import dev.mirutime.feature.tts.api.TtsHighlight
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -117,7 +116,7 @@ internal fun ReaderPaged(
     onAnchor: (ReadingAnchor, Int) -> Unit,
     onChapterFinished: (Int) -> Unit,
     onToggleChrome: () -> Unit,
-    onSearchSelection: (String) -> Unit = {},
+    selectionActions: SelectionActions? = null,
 ) {
     val textColor = Color(style.effectiveTextColor())
     Box(
@@ -274,7 +273,7 @@ internal fun ReaderPaged(
                         onAnchor = onAnchor,
                         onChapterFinished = onChapterFinished,
                         onToggleChrome = onToggleChrome,
-                        onSearchSelection = onSearchSelection,
+                        selectionActions = selectionActions,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -307,7 +306,7 @@ private fun ReaderPagedPager(
     onAnchor: (ReadingAnchor, Int) -> Unit,
     onChapterFinished: (Int) -> Unit,
     onToggleChrome: () -> Unit,
-    onSearchSelection: (String) -> Unit,
+    selectionActions: SelectionActions?,
     modifier: Modifier = Modifier,
 ) {
     val initialPage = remember(pages, anchor) {
@@ -440,7 +439,7 @@ private fun ReaderPagedPager(
                 translations = translations,
                 translationFirst = translationFirst,
                 ttsHighlight = ttsHighlight,
-                onSearchSelection = onSearchSelection,
+                selectionActions = selectionActions,
             )
         }
     }
@@ -457,17 +456,16 @@ private fun ReaderPageContent(
     translations: Map<BlockId, String>,
     translationFirst: Boolean = true,
     ttsHighlight: TtsHighlight? = null,
-    onSearchSelection: (String) -> Unit,
+    selectionActions: SelectionActions?,
 ) {
     val textColor = Color(style.effectiveTextColor())
     val paragraphStyle = style.toTextStyle()
     val headingStyle = style.headingTextStyle()
-    val searchLabel = stringResource(R.string.rd_selection_search)
+    val selectionLabels = rememberSelectionMenuLabels()
     PagedSelection(
         style = style,
-        searchable = true,
-        searchLabel = searchLabel,
-        onSearchSelection = onSearchSelection,
+        selectionActions = selectionActions,
+        selectionLabels = selectionLabels,
     ) {
         Column(
             Modifier
@@ -711,9 +709,8 @@ internal fun TextLayoutResult.visualLines(): List<PagedVisualLine> =
 @Composable
 private fun PagedSelection(
     style: ReaderStyle,
-    searchable: Boolean,
-    searchLabel: String,
-    onSearchSelection: (String) -> Unit,
+    selectionActions: SelectionActions?,
+    selectionLabels: SelectionMenuLabels,
     content: @Composable () -> Unit,
 ) {
     if (!style.selectableText) {
@@ -721,8 +718,8 @@ private fun PagedSelection(
         return
     }
     val state = rememberSelectionState()
-    val modifier = if (searchable) {
-        Modifier.selectionSearchMenu(state, searchLabel, onSearchSelection)
+    val modifier = if (selectionActions != null) {
+        Modifier.selectionActionsMenu(state, selectionLabels, selectionActions)
     } else {
         Modifier
     }

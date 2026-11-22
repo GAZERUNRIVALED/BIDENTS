@@ -740,10 +740,17 @@ fun MiruShell(
                         type = NavType.StringType
                         defaultValue = ""
                     },
+                    navArgument("find") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
                 ),
             ) { entry ->
                 RegexRulesScreen(
                     novelUrl = entry.arguments?.getString("novel")
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let(Uri::decode),
+                    initialFind = entry.arguments?.getString("find")
                         ?.takeIf { it.isNotBlank() }
                         ?.let(Uri::decode),
                     contentPadding = padding,
@@ -1025,6 +1032,12 @@ fun MiruShell(
                     onBack = { navController.popBackStack() },
                     onOpenRegex = { novelUrl ->
                         navController.navigate("${SettingsRoutes.Regex}?novel=${Uri.encode(novelUrl)}")
+                    },
+                    onOpenTermReplace = { novelUrl, term ->
+                        navController.navigate(
+                            "${SettingsRoutes.Regex}?novel=${Uri.encode(novelUrl)}" +
+                                "&find=${Uri.encode(term)}",
+                        )
                     },
                     onOpenWebView = { url, title ->
                         navController.navigate(
